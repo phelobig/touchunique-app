@@ -71,7 +71,8 @@ img { max-width: 100%; display: block; }
 }
 html[data-theme="light"] .sidebar { background: #fff; }
 .side-brand { display: flex; align-items: center; gap: 11px; padding: 4px 8px 22px; }
-.side-mark { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 900; background: linear-gradient(140deg, var(--red), #7d1024 55%, var(--blue)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
+.side-mark { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; overflow: hidden; font-weight: 900; background: linear-gradient(140deg, var(--red), #7d1024 55%, var(--blue)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
+.side-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .side-brand b { display: block; font-size: .82rem; letter-spacing: .08em; }
 .side-brand small { display: block; color: var(--dim); font-size: .58rem; letter-spacing: .14em; margin-top: 3px; }
 .side-close { display: none; align-self: flex-end; background: none; border: 0; color: var(--muted); }
