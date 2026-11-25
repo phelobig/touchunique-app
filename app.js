@@ -10,7 +10,7 @@
   var content = $('#content');
   var modalRoot = $('#modal-root');
   var page = 'home';
-  var state = { lastContent: null, socialFilter: 'all', toastTimers: [] };
+  var state = { lastContent: null, socialFilter: 'all', toastTimers: [], robotInfo: null };
 
   var NAV = [
     { id: 'home', label: 'Tableau de bord', icon: '⌂', kicker: 'Vue d’ensemble', title: 'Tableau de bord' },
@@ -18,6 +18,7 @@
     { id: 'leads', label: 'Commandes du site', icon: '🌐', kicker: 'Pipeline commercial', title: 'Commandes du site' },
     { id: 'content', label: 'Contenus IA', icon: '✦', kicker: 'Création assistée', title: 'Contenus IA' },
     { id: 'social', label: 'File sociale', icon: '▶', kicker: 'Publication', title: 'File sociale' },
+    { id: 'robots', label: 'Robots', icon: '✺', kicker: 'Tâches automatiques', title: 'Robots' },
     { id: 'shop', label: 'Boutique', icon: '▣', kicker: 'Catalogue & ventes', title: 'Boutique automatisée' },
     { id: 'clients', label: 'Clients', icon: '◎', kicker: 'Base de contacts', title: 'Clients' },
     { id: 'academy', label: 'Académie', icon: '◈', kicker: 'Formations', title: 'Touch Unique Académie' },
@@ -244,6 +245,39 @@
       }).join('') + '</div>' : '<div class="empty">Aucune publication dans cette file.</div>');
   };
 
+  views.robots = function () {
+    var R = window.TUSRobots || { robots: [], configured: function () { return false; } };
+    var info = state.robotInfo || {};
+    var history = (Store.db.robots || []).slice(0, 6);
+    var social = info.social || {};
+    var readyNetworks = Object.keys(social).filter(function (k) { return social[k]; });
+    return '<div class="kpi-grid">' +
+      kpi(R.robots.length, 'Robots actifs', '✺') +
+      kpi(readyNetworks.length, 'Réseaux connectés', '▶') +
+      kpi((Store.db.robots || []).length, 'Exécutions enregistrées', '◎') +
+      kpi(info.autorun ? 1 : 0, 'Publication auto', '◆') +
+      '</div>' +
+      '<div class="section-title"><h2>File de tâches automatiques</h2>' +
+      '<div class="row"><button class="btn btn-ghost btn-sm" data-act="robots-status">Actualiser l’état</button>' +
+      '<button class="btn btn-primary btn-sm" data-act="robot-run-all">Exécuter tous les robots</button></div></div>' +
+      '<p class="subtle small">Le moteur local prépare un aperçu chaque jour. Pour une publication réelle, configurez le serveur sécurisé et connectez vos tokens sociaux dans les réglages. Aucun statut « publié » n’est affiché sans confirmation de l’API.</p>' +
+      '<div class="three-col" style="margin-top:14px">' + R.robots.map(function (r) {
+        var last = (info.robots || []).find(function (x) { return x.id === r.id; }) || {};
+        return '<div class="card robot-card"><div class="card-head"><h3><span aria-hidden="true">' + esc(r.icon) + '</span> ' + esc(r.name) + '</h3>' +
+          (last.lastRun ? '<span class="chip green">Exécuté</span>' : '<span class="chip gray">Local</span>') + '</div>' +
+          '<p class="subtle small">' + esc(r.desc) + '</p>' +
+          '<div class="subtle small">Dernière exécution serveur : ' + esc(last.lastRun ? time(last.lastRun) + ' · ' + (last.lastResult || '') : 'aucune') + '</div>' +
+          '<div class="row" style="margin-top:12px"><button class="btn btn-ghost btn-sm" data-act="robot-local" data-id="' + esc(r.id) + '">Aperçu local</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="robot-dry" data-id="' + esc(r.id) + '">Générer serveur</button>' +
+          '<button class="btn btn-primary btn-sm" data-act="robot-run" data-id="' + esc(r.id) + '">Exécuter</button></div></div>';
+      }).join('') + '</div>' +
+      '<div class="section-title" style="margin-top:22px"><h2>Derniers résultats</h2></div>' +
+      (history.length ? '<div class="list">' + history.map(function (h) {
+        return '<div class="list-row"><div class="row-main"><b>' + esc(h.name) + '</b><small>' + esc(String(h.text || h.error || '').slice(0, 160)) + '</small></div>' +
+          '<span class="chip ' + (h.live ? 'green' : 'blue') + '">' + (h.live ? 'Temps réel' : 'Local') + '</span></div>';
+      }).join('') + '</div>' : '<div class="empty">Aucun résultat pour le moment.</div>');
+  };
+
   views.shop = function () {
     var products = Store.products();
     var suggestions = Store.db.shop.suggestions || [];
@@ -314,7 +348,14 @@
       '<div class="field full"><label class="switch"><input type="checkbox" name="autoProjects" ' + (s.autoProjects ? 'checked' : '') + '> Créer un projet depuis les leads scorés</label></div>' +
       '<div class="field full"><label class="switch"><input type="checkbox" name="autoSocial" ' + (s.autoSocial ? 'checked' : '') + '> Préparer une publication pour les leads chauds</label></div>' +
       '<button class="btn btn-primary" type="submit" style="grid-column:1/-1">Enregistrer</button></form></div>' +
-      '<div class="stack"><div class="card"><div class="card-head"><h2>Connecteurs</h2><span class="chip amber">Validation requise</span></div>' +
+      '<div class="stack"><div class="card"><div class="card-head"><h2>Serveur IA & publication</h2><span class="chip blue">Clés côté serveur</span></div>' +
+      '<form id="proxy-form" class="form-grid">' +
+      '<label class="field full"><span>URL du proxy sécurisé</span><input name="url" type="url" placeholder="https://mon-serveur.example" value="' + esc(window.TUSAI ? window.TUSAI.getURL() : '') + '"></label>' +
+      '<label class="field"><span>Clé d’accès au serveur</span><input name="key" type="password" autocomplete="off" placeholder="X-Tus-Key (facultatif)"></label>' +
+      '<div class="field"><button class="btn btn-ghost btn-sm" type="submit">Enregistrer</button></div></form>' +
+      '<div id="proxy-status" class="subtle small" style="margin-top:10px">Non configuré.</div>' +
+      '<p class="subtle small">ChatGPT, Gemini, Claude et les tokens sociaux sont lus par le serveur, jamais par le navigateur. Voir <code>server/README.md</code>.</p></div>' +
+      '<div class="card"><div class="card-head"><h2>Connecteurs</h2><span class="chip amber">Validation requise</span></div>' +
       rows.map(function (r) {
         var on = r[0] === 'whatsapp' ? !!connectors.whatsapp : !!connectors[r[0]];
         return '<div class="connector"><div><b>' + esc(r[1]) + '</b><div class="subtle small">' + (on ? 'Disponible' : 'Non connecté — clé ou permission requise') + '</div></div>' +
@@ -463,38 +504,52 @@
     toast('Export CSV téléchargé');
   }
 
-  /* ---------- Assistant ---------- */
+  /* ---------- Assistant & connexions ---------- */
+  function refreshConnections() {
+    var AI = window.TUSAI;
+    if (!AI) return;
+    var badge = $('#ai-mode'), box = $('#proxy-status');
+    AI.status().then(function (s) {
+      var live = s.ok && Object.keys(s.ai || {}).some(function (k) { return s.ai[k]; });
+      if (badge) badge.textContent = live ? 'IA temps réel connectée' : 'Moteur local inclus';
+      if (!box) return;
+      if (!s.configured) { box.innerHTML = 'Serveur non configuré — moteur local actif.'; return; }
+      if (!s.ok) { box.innerHTML = 'Serveur injoignable : ' + esc(s.error || 'erreur'); return; }
+      box.innerHTML = 'IA : ' + Object.keys(s.ai || {}).filter(function (k) { return s.ai[k]; }).join(', ') +
+        ' · Réseaux : ' + Object.keys(s.social || {}).filter(function (k) { return s.social[k]; }).join(', ') + '.';
+    });
+  }
   function assistantAsk(raw) {
     var q = A.norm ? A.norm(raw) : String(raw).toLowerCase();
-    var answer = '', sources = [];
+    var local = null, sources = [];
     if (/statut|projet|avancement/.test(q)) {
       var ps = Store.db.projects || [];
-      answer = ps.length ? ps.slice(0, 6).map(function (p) { return '• ' + p.name + ' — ' + (p.status || '—'); }).join('\n') : 'Aucun projet enregistré.';
+      local = ps.length ? ps.slice(0, 6).map(function (p) { return '• ' + p.name + ' — ' + (p.status || '—'); }).join('\n') : 'Aucun projet enregistré.';
       sources.push('Projets');
     } else if (/commande|lead|demande|client/.test(q)) {
       var ls = Store.db.leads || [];
-      answer = ls.length ? ls.slice(0, 4).map(function (l) {
+      local = ls.length ? ls.slice(0, 4).map(function (l) {
         return '• ' + ((l.client && l.client.name) || l.ref) + ' — score ' + (l.score || '?') + ' · ' + (l.nextAction || 'à qualifier');
       }).join('\n') : 'Aucune demande importée pour le moment.';
       sources.push('Commandes du site');
-    } else if (/contenu|caption|script|texte|publication/.test(q)) {
-      var theme = String(raw).replace(/^(g[ée]n[èe]re|cr[ée]e|donne|fais|texte|contenu|script)\s*/i, '') || 'Touch Unique Studio';
-      var c = A.content ? A.content({ theme: theme, kind: /vid[ée]o|script/.test(q) ? 'video' : 'reseau' }) : null;
-      answer = c ? 'Titre : ' + c.titles[0] + '\n\n' + c.captions[0] + '\n\n' + c.hashtags.join(' ') : 'Générateur indisponible.';
-      sources.push('Moteur de contenu');
     } else if (/boutique|catalogue|offre|prix/.test(q)) {
       var acts = A.shopActions ? A.shopActions(Store.products(), Store.db.leads || []) : [];
-      answer = acts.map(function (a) { return '• ' + a.title + ' — ' + a.reason; }).join('\n');
+      local = acts.map(function (a) { return '• ' + a.title + ' — ' + a.reason; }).join('\n');
       sources.push('Catalogue', 'Leads');
     } else if (/t[âa]che|todo|à faire/.test(q)) {
       var ts = (Store.db.tasks || []).filter(function (t) { return t.status !== 'terminée'; });
-      answer = ts.length ? ts.slice(0, 8).map(function (t) { return '• ' + t.title; }).join('\n') : 'Aucune tâche en attente.';
+      local = ts.length ? ts.slice(0, 8).map(function (t) { return '• ' + t.title; }).join('\n') : 'Aucune tâche en attente.';
       sources.push('Tâches');
-    } else {
-      answer = 'Je peux vous aider sur les projets, les commandes du site, la génération de contenus, la file sociale et la boutique.\n\nDites par exemple : « montre les projets », « génère un script vidéo » ou « suggère des offres ».';
-      sources.push('Aide');
     }
-    return { answer: answer, sources: sources };
+    if (local !== null) return Promise.resolve({ answer: local, sources: sources });
+
+    var AI = window.TUSAI;
+    if (!AI) return Promise.resolve({
+      answer: 'Je peux vous aider sur les projets, les commandes, les contenus, les robots et la boutique.', sources: ['Aide']
+    });
+    return AI.ask(raw).then(function (r) {
+      return { answer: r.text, sources: [r.live ? 'IA temps réel' : 'Moteur local'], trials: r.trials };
+    });
   }
   function pushMsg(cls, text) {
     var box = $('#ai-messages');
@@ -506,7 +561,7 @@
   }
   function initAI() {
     pushMsg('bot', 'Bonjour. Je suis l’assistant local Touch Unique. Je prépare, je classe et je rédige — vous validez.');
-    var sugg = ['Montre les projets', 'Génère un script vidéo', 'Suggère des offres', 'Tâches en attente'];
+    var sugg = ['Montre les projets', 'Trouve une offre', 'Génère une publication', 'Cherche des prospects', 'Tâches en attente'];
     $('#ai-suggestions').innerHTML = sugg.map(function (s) { return '<button type="button">' + esc(s) + '</button>'; }).join('');
     $('#ai-suggestions').addEventListener('click', function (e) {
       var b = e.target.closest('button'); if (!b) return;
@@ -518,10 +573,14 @@
       var input = $('#ai-text'), text = input.value.trim();
       if (!text) return;
       pushMsg('user', text); input.value = '';
-      var res = assistantAsk(text);
-      setTimeout(function () {
+      var btn = $('button', e.target);
+      if (btn) btn.disabled = true;
+      assistantAsk(text).then(function (res) {
         pushMsg('bot', res.answer + '\n\n— Sources : ' + res.sources.join(', '));
-      }, 180);
+        refreshConnections();
+      }).catch(function (err) {
+        pushMsg('bot', 'Erreur : ' + err.message);
+      }).then(function () { if (btn) btn.disabled = false; });
     });
     function toggle(open) {
       var panel = $('#ai-panel'), fab = $('#ai-fab');
@@ -535,9 +594,73 @@
     $('#ai-close').addEventListener('click', function () { toggle(false); });
   }
 
+  /* ---------- Robots ---------- */
+  function refreshRobotStatus() {
+    var R = window.TUSRobots;
+    if (!R) return;
+    R.status().then(function (s) {
+      state.robotInfo = s;
+      refreshConnections();
+      if (page === 'robots') go('robots');
+    });
+  }
+  function robotLocal(id) {
+    var R = window.TUSRobots;
+    var r = R && R.robots.find(function (x) { return x.id === id; });
+    if (!r) return;
+    toast('Préparation de l’aperçu…');
+    R.localRun(r).then(function (res) {
+      R.record(r, Object.assign({ ok: true }, res));
+      Store.log('Robot ' + r.name + ' : aperçu local généré');
+      Store.save();
+      toast('Aperçu généré : ' + r.name);
+      go(page);
+    }).catch(function (err) { toast(err.message, true); });
+  }
+  function robotExecute(id, dry) {
+    var R = window.TUSRobots;
+    var r = R && R.robots.find(function (x) { return x.id === id; });
+    if (!r) return;
+    if (!R.configured()) return toast('Configurez le serveur sécurisé dans les réglages.', true);
+    toast(dry ? 'Génération sur le serveur…' : 'Exécution du robot…');
+    R.run(id, dry).then(function (res) {
+      if (!res || !res.ok) return toast((res && res.error) || 'Exécution impossible', true);
+      R.record(r, Object.assign({ ok: true }, res));
+      Store.log('Robot ' + r.name + ' : ' + (dry ? 'génération serveur' : 'exécution') +
+        (res.published && res.published.length ? ' · ' + res.published.map(function (p) { return p.network + (p.ok ? ' ✓' : ' ✕'); }).join(' ') : ''));
+      Store.save();
+      toast(dry ? 'Contenu généré sur le serveur' : 'Robot exécuté');
+      refreshRobotStatus();
+    }).catch(function (err) { toast(err.message, true); });
+  }
+
   /* ---------- Événements ---------- */
   var ACTIONS = {
     'run-autopilot': runAutopilot,
+    'robots-status': refreshRobotStatus,
+    'robot-local': robotLocal,
+    'robot-dry': function (id) { robotExecute(id, true); },
+    'robot-run': function (id) {
+      confirmAction('Exécuter ce robot ?', 'Le contenu sera généré par l’IA connectée et, pour la publication, envoyé aux réseaux dont les tokens sont configurés.', function () { robotExecute(id, false); });
+    },
+    'robot-run-all': function () {
+      confirmAction('Exécuter tous les robots ?', 'Quatre tâches seront générées. La publication n’aura lieu que sur les comptes réellement connectés.', function () {
+        var R = window.TUSRobots;
+        if (!R || !R.configured()) return toast('Configurez le serveur sécurisé dans les réglages.', true);
+        toast('Exécution des quatre robots…');
+        R.run('all').then(function (res) {
+          var results = (res && res.results) || [];
+          results.forEach(function (out) {
+            var r = R.robots.find(function (x) { return x.id === out.id; });
+            if (r && out.ok) R.record(r, Object.assign({ ok: true }, out));
+          });
+          Store.log('File de robots exécutée : ' + results.filter(function (x) { return x.ok; }).length + '/' + results.length);
+          Store.save();
+          toast('Robots terminés');
+          refreshRobotStatus();
+        }).catch(function (err) { toast(err.message, true); });
+      });
+    },
     'go-content': function () { go('content'); },
     'go-leads': function () { go('leads'); },
     'task-done': function (id) { Store.update('tasks', id, { status: 'terminée' }); toast('Tâche terminée'); go(page); },
@@ -648,7 +771,8 @@
       if (act === 'task-done' || act === 'lead-convert' || act === 'lead-done' || act === 'lead-delete' ||
           act === 'project-detail' || act === 'project-tasks' || act === 'project-advance' || act === 'social-copy' ||
           act === 'social-publish' || act === 'social-delete' || act === 'content-reuse' || act === 'shop-edit' ||
-          act === 'shop-copy' || act === 'client-delete' || act === 'academy-open') fn(target.dataset.id);
+          act === 'shop-copy' || act === 'client-delete' || act === 'academy-open' ||
+           act === 'robot-local' || act === 'robot-dry' || act === 'robot-run') fn(target.dataset.id);
       else fn();
     });
     content.addEventListener('submit', function (e) {
@@ -675,6 +799,16 @@
         var editId = form.dataset.id || '';
         Store.db.shop.overrides[editId] = { name: sf.get('name'), price: Number(sf.get('price') || 0), unit: sf.get('unit'), short: sf.get('short') };
         Store.save(); closeModal(); toast('Offre mise à jour'); go('shop');
+      } else if (form.id === 'proxy-form') {
+        e.preventDefault();
+        var pf = new FormData(form), AI = window.TUSAI;
+        if (!AI) return toast('Couche IA indisponible', true);
+        try {
+          if (pf.get('url')) AI.connect(pf.get('url')); else AI.disconnect();
+          AI.setKey(pf.get('key'));
+          toast('Connexion au serveur enregistrée');
+          refreshConnections(); refreshRobotStatus();
+        } catch (err) { toast(err.message, true); }
       } else if (form.id === 'settings-form') {
         e.preventDefault(); var st = new FormData(form);
         Object.assign(Store.db.settings, {
@@ -729,8 +863,15 @@
     if (Store.db.settings.theme) document.documentElement.dataset.theme = Store.db.settings.theme;
     bindGlobal();
     initAI();
+    refreshConnections();
     syncAndNotify();
     go('home');
+    if (window.TUSRobots) {
+      window.TUSRobots.maybeDaily().then(function (n) {
+        if (n) Store.log('Robots : ' + n + ' aperçus locaux générés pour aujourd’hui.');
+      });
+      refreshRobotStatus();
+    }
     window.addEventListener('storage', function (e) {
       if (e.key === Store.KEY || e.key === 'tus_site_leads_v1') syncAndNotify();
     });

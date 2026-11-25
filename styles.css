@@ -334,3 +334,11 @@ html[data-theme="light"] .platform.whatsapp { background: #e7f6ee; color: var(--
 html[data-theme="light"] .platform.instagram { background: #ffe6e9; color: var(--red-deep); }
 html[data-theme="light"] .msg.bot { background: var(--panel-2); color: var(--muted); }
 html[data-theme="light"] .ai-suggestions button { background: #fff; color: var(--muted); }
+
+/* Robots, connexions et aperçus quotidiens */
+.robot-card .card-head h3 { display: flex; align-items: center; gap: 8px; }
+.robot-card .card-head h3 span { color: var(--red-deep); }
+.robot-card .btn-sm { flex: 1 1 auto; }
+.ai-panel-head small { color: var(--red-deep); font-weight: 700; }
+#proxy-status { line-height: 1.5; }
+

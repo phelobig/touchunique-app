@@ -8,7 +8,7 @@
   <title>Touch Unique — Application de gestion</title>
   <link rel="icon" href="ic_launcher_192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
   <div class="app-bg" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -48,7 +48,7 @@
   <button class="ai-fab" id="ai-fab" aria-label="Ouvrir l’assistant IA" aria-expanded="false">✺</button>
   <aside class="ai-panel" id="ai-panel" aria-label="Assistant Touch Unique" inert>
     <div class="ai-panel-head">
-      <div><b>Assistant Touch Unique</b><small>Analyse locale · hors ligne</small></div>
+      <div><b>Assistant Touch Unique</b><small id="ai-mode">Moteur local inclus</small></div>
       <button class="icon-btn" id="ai-close" aria-label="Fermer l’assistant">✕</button>
     </div>
     <div class="ai-messages" id="ai-messages" role="log" aria-live="polite"></div>
@@ -62,10 +62,13 @@
   <div class="modal-root" id="modal-root" hidden></div>
   <div class="toast-root" id="toast-root" role="status" aria-live="polite"></div>
 
-  <script src="sync.js?v=10"></script>
-  <script src="data.js?v=10"></script>
-  <script src="automation.js?v=10"></script>
-  <script src="store.js?v=10"></script>
-  <script src="app.js?v=10"></script>
+  <script src="sync.js?v=11"></script>
+  <script src="data.js?v=11"></script>
+  <script src="automation.js?v=11"></script>
+  <script src="tus-ai.js?v=11"></script>
+  <script src="tus-accounts.js?v=11"></script>
+  <script src="robots.js?v=11"></script>
+  <script src="store.js?v=11"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>

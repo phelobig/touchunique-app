@@ -48,6 +48,7 @@
       contents: [
         { id: uid('CT'), theme: 'Identité visuelle', type: 'reseau', text: 'Un visuel qui capte, un message qui reste, une action qui suit. C’est exactement ce qu’on construit avec une identité claire. #TouchUnique', createdAt: now(), ai: true }
       ],
+      robots: [],
       social: [
         { id: uid('SO'), platform: 'instagram', text: 'Votre marque a quelque chose à dire. On l’aide à être comprise en trois secondes.', status: 'à valider', scheduledAt: now(), source: 'manuel' },
         { id: uid('SO'), platform: 'facebook', text: 'Pack Visibilité Pro : identité, 12 visuels, bannière et vidéo 30 s.', status: 'programmé', scheduledAt: now(), source: 'autopilot' },
@@ -64,7 +65,7 @@
   function defaults() {
     var d = seed();
     d.demo = false;
-    d.clients = []; d.projects = []; d.tasks = []; d.leads = []; d.contents = []; d.social = [];
+    d.clients = []; d.projects = []; d.tasks = []; d.leads = []; d.contents = []; d.social = []; d.robots = [];
     d.shop.orders = [];
     d.logs = [{ id: uid('LG'), at: now(), text: 'Application prête.' }];
     return d;
