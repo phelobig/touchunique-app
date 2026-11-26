@@ -922,7 +922,7 @@
       '<p class="subtle small">Ces autorisations servent à importer des fichiers, prendre une photo et afficher l’assistant par-dessus les autres écrans. Sur Android, la superposition s’active dans les réglages système.</p></div>' +
       '<div class="card"><div class="card-head"><h2>Serveur sécurisé</h2><span class="chip blue">Clés côté serveur</span></div>' +
       '<form id="proxy-form" class="form-grid">' +
-      '<label class="field full"><span>URL du serveur sécurisé</span><input name="url" type="url" placeholder="https://mon-serveur.onrender.com" value="' + esc(Cloud ? Cloud.url() : (window.TUSAI ? window.TUSAI.getURL() : '')) + '"></label>' +
+      '<label class="field full"><span>URL du serveur sécurisé</span><input name="url" type="url" placeholder="https://touchunique-serveur.onrender.com" value="' + esc((Cloud && Cloud.url()) || (window.TUSAI && window.TUSAI.getURL()) || 'https://touchunique-serveur.onrender.com') + '"></label>' +
       '<label class="field"><span>Clé d’accès (X-Tus-Key)</span><input name="key" type="password" autocomplete="off" placeholder="Facultatif"></label>' +
       '<div class="field"><button class="btn btn-ghost btn-sm" type="submit">Enregistrer</button></div></form>' +
       '<div id="proxy-status" class="subtle small" style="margin-top:10px">Non configuré.</div>' +
@@ -965,7 +965,7 @@
       (state.cloudInfo && state.cloudInfo.google && state.cloudInfo.google.connected ? esc(state.cloudInfo.google.email || 'Connecté') : 'Non connecté') + '</span></div>' +
       (Cloud ? '<form id="google-form" class="form-grid">' +
         Cloud.GOOGLE_FIELDS.map(function (f) {
-          return '<label class="field full"><span>' + esc(f.label) + '</span><input name="' + esc(f.id) + '" type="text" autocomplete="off" placeholder="' + esc(f.id === 'google_redirect_uri' ? 'https://mon-serveur.onrender.com/api/google/callback' : 'À saisir une fois') + '"></label>';
+          return '<label class="field full"><span>' + esc(f.label) + '</span><input name="' + esc(f.id) + '" type="text" autocomplete="off" placeholder="' + esc(f.id === 'google_redirect_uri' ? 'https://touchunique-serveur.onrender.com/api/google/callback' : 'À saisir une fois') + '"></label>';
         }).join('') +
         '<button class="btn btn-ghost" type="submit" style="grid-column:1/-1">Enregistrer la configuration Google</button></form>' : '') +
       '<div class="row" style="margin-top:12px"><button class="btn btn-primary btn-sm" data-act="google-connect">Se connecter à Google Drive</button>' +
@@ -2964,6 +2964,22 @@
     });
   }
 
+  function refreshVisitors() {
+    if (!window.TUSVisits) return;
+    window.TUSVisits.stats().then(function (v) {
+      var box = $('#visitors-chip');
+      var total = $('#visitors-total');
+      if (!box || !total) return;
+      total.textContent = Number(v.total || 0).toLocaleString('fr-FR');
+      var today = $('#visitors-today');
+      if (today) today.textContent = 'aujourd’hui : ' + Number(v.today || 0).toLocaleString('fr-FR');
+      box.dataset.synced = String(!!v.synced);
+      box.title = 'Site public · ' + Number(v.total || 0).toLocaleString('fr-FR') + ' visiteurs uniques · '
+        + Number(v.online || 0) + ' en ligne · ' + Number(v.views || 0) + ' pages vues'
+        + (v.synced ? '' : ' (dernier relevé enregistré)');
+    });
+  }
+
   function syncAndNotify() {
     var n = Store.syncSiteLeads();
     if (window.TUSync) window.TUSync.pulse('app', { leads: Store.db.leads.length, projects: Store.db.projects.length });
@@ -2981,6 +2997,7 @@
     }
     refreshCloud();
     syncAndNotify();
+    refreshVisitors();
     go('home');
     probeUpdates();
     setTimeout(probeUpdates, 45000);
@@ -2997,8 +3014,9 @@
     window.addEventListener('storage', function (e) {
       if (e.key === Store.KEY || e.key === 'tus_site_leads_v1') syncAndNotify();
     });
-    window.addEventListener('focus', syncAndNotify);
+    window.addEventListener('focus', function () { syncAndNotify(); refreshVisitors(); });
     setInterval(syncAndNotify, 8000);
+    setInterval(refreshVisitors, 60000);
     setInterval(function () {
       if ((page === 'social' || page === 'prospect') && window.TUSMessages && window.TUSMessages.server()) {
         refreshInbox(true);

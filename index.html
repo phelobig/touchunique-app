@@ -9,7 +9,7 @@
   <title>Touch Unique — Application de gestion</title>
   <link rel="icon" href="ic_launcher_192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=20">
+  <link rel="stylesheet" href="styles.css?v=22">
 </head>
 <body>
   <div class="app-bg" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -40,6 +40,7 @@
             <button class="net-toggle" id="net-toggle" type="button" aria-pressed="true" title="Activer ou désactiver la connexion réseau">ACTIF</button>
           </div>
           <span class="sync-state" id="sync-state" role="status" aria-live="polite">Synchronisation locale prête</span>
+          <span class="visitors-chip" id="visitors-chip" title="Visiteurs du site public" aria-live="polite"><b id="visitors-total">—</b> visiteurs <small id="visitors-today">aujourd’hui : —</small></span>
           <button class="top-icon" id="theme-btn" aria-label="Changer de thème" title="Changer de thème">◐</button>
           <button class="top-icon notif-btn" id="notif-btn" aria-label="Notifications">🔔<span class="notif-dot" id="notif-dot" hidden></span></button>
           <button class="btn btn-primary btn-sm" id="new-project">+ Nouveau projet</button>
@@ -111,7 +112,7 @@
         <div class="field full"><label class="switch"><input type="checkbox" name="show"> Afficher les mots de passe</label></div>
         <div class="field full"><label class="switch"><input type="checkbox" name="remember" checked> Rester connecté sur cet appareil</label></div>
         <div class="field full"><div class="gate-divider">Serveur sécurisé — facultatif, vous pourrez le configurer plus tard dans les réglages</div></div>
-        <label class="field full"><span>URL du serveur sécurisé</span><input name="url" type="url" placeholder="https://mon-serveur.onrender.com"></label>
+        <label class="field full"><span>URL du serveur sécurisé</span><input name="url" type="url" placeholder="https://touchunique-serveur.onrender.com" value="https://touchunique-serveur.onrender.com"></label>
         <label class="field full"><span>Clé d’accès au serveur (si demandée)</span><input name="key" type="password" autocomplete="off"></label>
         <button class="btn btn-primary btn-block" type="submit" style="grid-column:1/-1">Créer mon espace sécurisé</button>
       </form>
@@ -171,27 +172,28 @@
   <div class="modal-root" id="modal-root" hidden></div>
   <div class="toast-root" id="toast-root" role="status" aria-live="polite"></div>
 
-  <script src="sync.js?v=20"></script>
-  <script src="data.js?v=20"></script>
-  <script src="automation.js?v=20"></script>
-  <script src="tus-secure.js?v=20"></script>
-  <script src="tus-ai.js?v=20"></script>
-  <script src="tus-accounts.js?v=20"></script>
-  <script src="tus-cloud.js?v=20"></script>
-  <script src="tus-catalog.js?v=20"></script>
-  <script src="tus-messages.js?v=20"></script>
-  <script src="qrcode.min.js?v=20"></script>
-  <script src="jsqr.min.js?v=20"></script>
-  <script src="qr-sync.js?v=20"></script>
-  <script src="prospects.js?v=20"></script>
-  <script src="robots.js?v=20"></script>
-  <script src="network.js?v=20"></script>
-  <script src="updates.js?v=20"></script>
-  <script src="collab-auto.js?v=20"></script>
-  <script src="filemanager.js?v=20"></script>
-  <script src="setup.js?v=20"></script>
-  <script src="store.js?v=20"></script>
-  <script src="admin-assistant.js?v=20"></script>
-  <script src="app.js?v=20"></script>
+  <script src="sync.js?v=22"></script>
+  <script src="data.js?v=22"></script>
+  <script src="automation.js?v=22"></script>
+  <script src="tus-secure.js?v=22"></script>
+  <script src="tus-ai.js?v=22"></script>
+  <script src="tus-accounts.js?v=22"></script>
+  <script src="tus-cloud.js?v=22"></script>
+  <script src="tus-catalog.js?v=22"></script>
+  <script src="tus-messages.js?v=22"></script>
+  <script src="tus-visits.js?v=22"></script>
+  <script src="qrcode.min.js?v=22"></script>
+  <script src="jsqr.min.js?v=22"></script>
+  <script src="qr-sync.js?v=22"></script>
+  <script src="prospects.js?v=22"></script>
+  <script src="robots.js?v=22"></script>
+  <script src="network.js?v=22"></script>
+  <script src="updates.js?v=22"></script>
+  <script src="collab-auto.js?v=22"></script>
+  <script src="filemanager.js?v=22"></script>
+  <script src="setup.js?v=22"></script>
+  <script src="store.js?v=22"></script>
+  <script src="admin-assistant.js?v=22"></script>
+  <script src="app.js?v=22"></script>
 </body>
 </html>
