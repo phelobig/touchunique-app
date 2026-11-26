@@ -117,6 +117,26 @@ html[data-theme="light"] .nav-item.active { color: var(--text); }
 
 .content { padding: 28px 30px 90px; outline: 0; }
 .content > * { animation: tuFadeUp .35s var(--ease) both; }
+
+/* Bandeau de mise à jour visible dès l’ouverture de l’application. */
+.update-banner { position: relative; z-index: 80; display: flex; align-items: center; gap: 12px; margin: 14px 30px 0; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(212,20,47,.32); background: linear-gradient(100deg, #ffe6e9, #fff5f2); color: var(--text); box-shadow: 0 10px 30px rgba(156,11,34,.12); }
+.update-icon { flex: 0 0 34px; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--red-deep); color: #fff; font-size: 1.1rem; font-weight: 800; }
+.update-copy { flex: 1 1 auto; min-width: 0; }
+.update-copy b { display: block; font-size: .92rem; color: var(--red-deep); }
+.update-copy small { display: block; font-size: .78rem; line-height: 1.35; }
+.update-copy .subtle { opacity: .72; }
+.update-banner.installed { border-color: rgba(19,122,72,.35); background: linear-gradient(100deg, #e7f7ee, #f6fffa); box-shadow: 0 10px 30px rgba(19,122,72,.12); }
+.update-banner.installed .update-icon { background: #137a48; }
+.update-banner.installed .update-copy b { color: #137a48; }
+html[data-theme="dark"] .update-banner { background: linear-gradient(100deg, rgba(255,77,99,.18), rgba(10,14,22,.8)); border-color: rgba(255,77,99,.4); color: #fff; }
+html[data-theme="dark"] .update-copy b { color: #ff8b9c; }
+html[data-theme="dark"] .update-banner.installed { background: linear-gradient(100deg, rgba(61,220,141,.16), rgba(10,14,22,.8)); border-color: rgba(61,220,141,.4); }
+html[data-theme="dark"] .update-banner.installed .update-copy b { color: #7ce0a9; }
+@media (max-width: 720px) {
+  .update-banner { margin: 10px 14px 0; flex-wrap: wrap; padding: 10px 12px; gap: 9px; }
+  .update-copy { flex-basis: calc(100% - 60px); }
+  .update-banner .btn { margin-left: 44px; }
+}
 @keyframes tuFadeUp { from { opacity: 0; transform: translate3d(0, 10px, 0); } }
 @keyframes tuShimmer { to { background-position: -200% 0; } }
 

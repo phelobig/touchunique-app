@@ -18,7 +18,8 @@
     fileFolder: '', pipelineResult: null, companyFilter: '', nativePerms: null,
     collabFolders: [], collabEvidence: null,
     managerFolder: 'root', managerFolders: [], managerFiles: [], managerAll: [], managerPath: 'Mes fichiers',
-    msgThread: '', msgRec: null, prospectFilter: 'tous', prospectBucket: 'online', prospectDomain: 'tous'
+    msgThread: '', msgRec: null, prospectFilter: 'tous', prospectBucket: 'online', prospectDomain: 'tous',
+    update: null, updateDismissed: ''
   };
 
   function nativeBridge() {
@@ -125,6 +126,54 @@
       if (url && document.activeElement !== url) url.value = current.url || '';
       if (auto) auto.checked = current.auto !== false;
     }).catch(function () { /* affichage non bloquant */ });
+  }
+
+  /* Bandeau de mise à jour directement dans l’interface, sans ouvrir les réglages. */
+  function updateBannerKey(info) {
+    var installed = String(info.installed || '');
+    var available = String(info.available || '');
+    if (info.updated) return installed ? ('installed:' + installed) : '';
+    return available ? ('available:' + available) : '';
+  }
+
+  function paintUpdateBanner(s) {
+    var box = $('#update-banner');
+    if (!box) return;
+    var info = s || state.update || {};
+    var installed = String(info.installed || '');
+    var available = String(info.available || '');
+    var justUpdated = !!info.updated;
+    var version = justUpdated ? installed : available;
+    var key = updateBannerKey(info);
+    var seen = state.updateDismissed;
+    try { seen = seen || localStorage.getItem('tus_update_seen_v1') || ''; } catch (e) { /* ignore */ }
+    var show = !!(version && version !== '—' && key && seen !== key && info.supported !== false);
+    box.hidden = !show;
+    box.classList.toggle('installed', !!justUpdated);
+    if (!show) return;
+    var prefix = $('#update-prefix');
+    if (prefix) prefix.textContent = justUpdated ? 'Mise à jour installée' : 'Mise à jour disponible';
+    var icon = $('#update-icon');
+    if (icon) icon.textContent = justUpdated ? '✓' : '↻';
+    $('#update-version').textContent = version;
+    $('#update-current').textContent = justUpdated
+      ? ('Votre application utilise maintenant la version ' + version)
+      : (installed ? ('Version installée : ' + installed) : '');
+    $('#update-note').textContent = info.notes || (justUpdated
+      ? 'Les derniers correctifs sont actifs sur cet appareil.'
+      : 'Ouvrez la mise à jour pour bénéficier des derniers correctifs.');
+    var btn = $('#update-install');
+    if (btn) { btn.hidden = !!justUpdated; btn.disabled = !!info.busy; }
+  }
+
+  function probeUpdates() {
+    if (!window.TUSUpdates || !window.TUSUpdates.probe) return Promise.resolve();
+    return window.TUSUpdates.probe().then(function (s) {
+      state.update = s;
+      state.updateDismissed = s.seen || state.updateDismissed;
+      paintUpdateBanner(s);
+      if (page === 'settings') paintUpdates(s);
+    }).catch(function () { /* silencieux : la mise à jour reste facultative */ });
   }
 
   var NAV = [
@@ -2463,7 +2512,11 @@
       if (!window.TUSUpdates) return;
       toast('Vérification du serveur de mises à jour…');
       window.TUSUpdates.check().then(function (s) {
-        toast(s.updated ? ('Version ' + s.installed + ' installée') : (s.error || 'Aucune nouvelle version'), !!s.error);
+        state.update = s;
+        paintUpdateBanner(s);
+        var msg = s.error ? s.error : (s.updated ? ('Version ' + s.installed + ' installée')
+          : (s.available ? ('Mise à jour disponible : ' + s.available) : 'Aucune nouvelle version'));
+        toast(msg, !!s.error);
         paintUpdates(s);
       }).catch(function (e) { toast(e.message, true); paintUpdates(); });
     },
@@ -2531,6 +2584,26 @@
     });
     $('#menu-btn').addEventListener('click', function () { $('#sidebar').classList.add('open'); });
     $('#side-close').addEventListener('click', function () { $('#sidebar').classList.remove('open'); });
+    var updateInstall = $('#update-install');
+    if (updateInstall) updateInstall.addEventListener('click', function () {
+      if (!window.TUSUpdates) return;
+      var btn = this;
+      btn.disabled = true;
+      toast('Installation de la mise à jour…');
+      window.TUSUpdates.check().then(function (s) {
+        state.update = s;
+        paintUpdateBanner(s);
+        toast(s.updated ? ('Version ' + s.installed + ' installée.') : 'Installation lancée…', !!s.error);
+      }).catch(function (err) { toast(err.message, true); })
+        .then(function () { btn.disabled = false; });
+    });
+    var updateDismiss = $('#update-dismiss');
+    if (updateDismiss) updateDismiss.addEventListener('click', function () {
+      var key = state.update ? updateBannerKey(state.update) : '';
+      state.updateDismissed = key;
+      if (window.TUSUpdates && window.TUSUpdates.markSeen) window.TUSUpdates.markSeen(key);
+      paintUpdateBanner();
+    });
     /* Un appui ailleurs sur l’écran (ou Échap) referme le menu sans toucher le bouton. */
     document.addEventListener('pointerdown', function (e) {
       var sb = $('#sidebar');
@@ -2909,6 +2982,8 @@
     refreshCloud();
     syncAndNotify();
     go('home');
+    probeUpdates();
+    setTimeout(probeUpdates, 45000);
     if (window.TUSRobots) {
       window.TUSRobots.maybeDaily().then(function (n) {
         if (n) Store.log('Robots : ' + n + ' aperçus locaux générés pour aujourd’hui.');
@@ -2945,7 +3020,12 @@
       }).catch(function (err) { toast(err.message, true); });
     });
     window.addEventListener('tuspermissionschange', refreshNativePermissions);
-    if (window.TUSUpdates) window.TUSUpdates.onChange(function (s) { if (page === 'settings') paintUpdates(s); });
+    if (window.TUSUpdates) window.TUSUpdates.onChange(function (s) {
+      state.update = s;
+      state.updateDismissed = s.seen || state.updateDismissed;
+      paintUpdateBanner(s);
+      if (page === 'settings') paintUpdates(s);
+    });
     initNetworkMeter();
     loadCollabFolders();
     initAI();
