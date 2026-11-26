@@ -44,8 +44,35 @@
       .then(function (j) { if (t) clearTimeout(t); return j; });
   }
 
-  function status() { return get('/api/robots'); }
+  var KINDS = { veille: 'veille', publication: 'publication', conception: 'design', prospection: 'prospect' };
+  var ICONS = { veille: '⌕', publication: '▶', conception: '◆', prospection: '◎' };
+
+  /* La configuration quotidienne (actif, heure, fournisseur, consigne) vient du serveur. */
+  function setConfig(list) {
+    if (!Array.isArray(list) || !list.length) return ROBOTS;
+    ROBOTS = list.map(function (r) {
+      var base = ROBOTS.find(function (x) { return x.id === r.id; }) || {};
+      return {
+        id: r.id, name: r.name || base.name || r.id,
+        kind: KINDS[r.id] || base.kind || 'veille',
+        icon: ICONS[r.id] || base.icon || '✺',
+        desc: r.desc || base.desc || '',
+        topic: r.topic || base.topic || '',
+        enabled: r.enabled !== false,
+        hour: Number(r.hour || 8),
+        provider: r.provider || 'auto'
+      };
+    });
+    return ROBOTS;
+  }
+  function status() {
+    return get('/api/robots').then(function (s) {
+      if (s && s.robots) setConfig(s.robots);
+      return s;
+    });
+  }
   function run(id, dryRun) { return post('/api/robots/run', { id: id, dryRun: !!dryRun }); }
+  function config() { return get('/api/robots').then(function (s) { return (s && s.robots) || ROBOTS; }); }
 
   function localRun(robot) {
     var AI = root.TUSAI;
@@ -97,6 +124,8 @@
   root.TUSRobots = {
     robots: ROBOTS,
     status: status,
+    config: config,
+    setConfig: setConfig,
     run: run,
     localRun: localRun,
     record: record,

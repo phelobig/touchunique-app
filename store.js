@@ -14,8 +14,9 @@
     var p1 = uid('PR'), p2 = uid('PR'), p3 = uid('PR');
     var c1 = uid('CL'), c2 = uid('CL'), c3 = uid('CL');
     return {
-      version: 1,
+      version: 2,
       demo: true,
+      setupDone: false,
       createdAt: now(),
       settings: {
         studio: 'Touch Unique Studio',
@@ -26,6 +27,8 @@
         autoSocial: true,
         currency: 'FCFA',
         theme: 'light',
+        activeCompany: '',
+        activeProject: '',
         connectors: { whatsapp: true, facebook: false, instagram: false, linkedin: false, x: false, email: false, payment: false }
       },
       clients: [
@@ -45,6 +48,8 @@
       ],
       leads: [],
       knownLeadIds: [],
+      companies: [],
+      folders: [],
       contents: [
         { id: uid('CT'), theme: 'Identité visuelle', type: 'reseau', text: 'Un visuel qui capte, un message qui reste, une action qui suit. C’est exactement ce qu’on construit avec une identité claire. #TouchUnique', createdAt: now(), ai: true }
       ],
@@ -65,7 +70,9 @@
   function defaults() {
     var d = seed();
     d.demo = false;
+    d.setupDone = false;
     d.clients = []; d.projects = []; d.tasks = []; d.leads = []; d.contents = []; d.social = []; d.robots = [];
+    d.companies = []; d.folders = [];
     d.shop.orders = [];
     d.logs = [{ id: uid('LG'), at: now(), text: 'Application prête.' }];
     return d;
@@ -83,6 +90,13 @@
       Object.keys(base.settings).forEach(function (k) { if (d.settings[k] == null) d.settings[k] = base.settings[k]; });
       if (!d.shop) d.shop = base.shop;
       if (!d.shop.overrides) d.shop.overrides = {};
+      /* Migration sans perte vers le format multi-entreprises (v2). */
+      if (!Array.isArray(d.companies)) d.companies = [];
+      if (!Array.isArray(d.folders)) d.folders = [];
+      if (typeof d.setupDone !== 'boolean') d.setupDone = !!d.settings.setupDone;
+      if (d.settings.activeCompany == null) d.settings.activeCompany = '';
+      if (d.settings.activeProject == null) d.settings.activeProject = '';
+      if (d.version !== 2) d.version = 2;
       return d;
     } catch (e) { return seed(); }
   }
@@ -160,11 +174,22 @@
     return imported;
   }
   function products() {
+    if (root.TUSCatalog) return root.TUSCatalog.products();
     var canonical = (root.TU_CATALOGUE && root.TU_CATALOGUE.products) || [];
     return canonical.map(function (p) {
       var o = db.shop.overrides[p.id] || {};
       return Object.assign({}, p, o);
     });
+  }
+  /* Migration unique des anciennes surcharges vers le catalogue partagé. */
+  function migrateShop() {
+    if (!root.TUSCatalog) return;
+    var legacy = db.shop.overrides || {};
+    var ids = Object.keys(legacy);
+    if (!ids.length) return;
+    root.TUSCatalog.importOverrides(legacy);
+    db.shop.overrides = {};
+    save();
   }
   function unreadLeads() { return db.leads.filter(function (l) { return !l.seen; }).length; }
   function exportData() { return JSON.stringify(db, null, 2); }
@@ -192,7 +217,14 @@
     log: log,
     readSiteLeads: readSiteLeads,
     syncSiteLeads: syncSiteLeads,
-    products: products,
+    products: products, migrateShop: migrateShop,
+    companies: function () { return list('companies'); },
+    folders: function () { return list('folders'); },
+    projectsFor: function (company) {
+      return (db.projects || []).filter(function (p) { return !company || p.company === company; });
+    },
+    completeSetup: function () { db.setupDone = true; save(); },
+    setupDone: function () { return !!db.setupDone; },
     unreadLeads: unreadLeads,
     exportData: exportData,
     importData: importData,

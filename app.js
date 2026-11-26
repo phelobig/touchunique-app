@@ -3,6 +3,8 @@
   'use strict';
 
   var A = window.TUAutomation || {};
+  var Cloud = window.TUSCloud || null;
+  var Accounts = window.TUSAccounts || null;
   var C = window.TU_CONTENT || {};
   var BRAND = C.brand || { whatsapp: 'https://wa.me/22655041530' };
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -10,11 +12,20 @@
   var content = $('#content');
   var modalRoot = $('#modal-root');
   var page = 'home';
-  var state = { lastContent: null, socialFilter: 'all', toastTimers: [], robotInfo: null };
+  var state = {
+    lastContent: null, socialFilter: 'all', toastTimers: [], robotInfo: null,
+    cloudInfo: null, agentInfo: null, filesList: [], fileCompany: '', fileProject: '',
+    fileFolder: '', pipelineResult: null, companyFilter: '',
+    managerFolder: 'root', managerFolders: [], managerFiles: [], managerAll: [], managerPath: 'Mes fichiers'
+  };
 
   var NAV = [
     { id: 'home', label: 'Tableau de bord', icon: '⌂', kicker: 'Vue d’ensemble', title: 'Tableau de bord' },
     { id: 'projects', label: 'Projets', icon: '◆', kicker: 'Orchestration', title: 'Projets' },
+    { id: 'companies', label: 'Entreprises', icon: '▤', kicker: 'Espace multi-entreprises', title: 'Entreprises & projets' },
+    { id: 'files', label: 'Dossiers & fichiers', icon: '📁', kicker: 'Base de connaissances IA', title: 'Dossiers & fichiers' },
+    { id: 'manager', label: 'Gestionnaire de fichiers', icon: '📂', kicker: 'Dossiers, fichiers et analyse', title: 'Gestionnaire de fichiers' },
+    { id: 'collab', label: 'Collaboration IA', icon: '⇄', kicker: 'Quatre agents, un dossier', title: 'Collaboration IA' },
     { id: 'leads', label: 'Commandes du site', icon: '🌐', kicker: 'Pipeline commercial', title: 'Commandes du site' },
     { id: 'content', label: 'Contenus IA', icon: '✦', kicker: 'Création assistée', title: 'Contenus IA' },
     { id: 'social', label: 'File sociale', icon: '▶', kicker: 'Publication', title: 'File sociale' },
@@ -108,6 +119,7 @@
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
     if (page === 'content' && state.lastContent) paintContentResult(state.lastContent);
+    if (page === 'manager') { bindManager(); loadManager(); }
   }
 
   /* ---------- Vues ---------- */
@@ -179,6 +191,191 @@
               '<button class="btn btn-ghost btn-sm" data-act="project-advance" data-id="' + esc(p.id) + '">Avancer →</button></div></article>';
           }).join('') : '<div class="empty small">Aucun projet</div>') + '</div>';
       }).join('') + '</div>';
+  };
+
+  views.companies = function () {
+    var companies = Store.companies();
+    var projects = Store.db.projects || [];
+    var active = Store.db.settings.activeCompany || '';
+    return '<div class="kpi-grid">' +
+      kpi(companies.length, 'Entreprises suivies', '▤') +
+      kpi(projects.length, 'Projets tous confondus', '◆') +
+      kpi(projects.filter(function (p) { return p.status !== 'livré'; }).length, 'Projets en cours', '◷') +
+      kpi(Store.folders().length, 'Dossiers classés', '📁') +
+      '</div>' +
+      '<div class="section-title"><h2>Espaces entreprises</h2>' +
+      '<button class="btn btn-primary btn-sm" data-act="company-form">+ Nouvelle entreprise</button></div>' +
+      (companies.length ? '<div class="company-grid">' + companies.map(function (c) {
+        var mine = projects.filter(function (p) { return p.company === c.name; });
+        return '<article class="card company-card' + (active === c.name ? ' active' : '') + '">' +
+          '<div class="card-head"><div><h2>' + esc(c.name) + '</h2>' +
+          '<div class="subtle small">' + esc(c.sector || 'Secteur non précisé') + ' · ' + esc(c.city || '—') + '</div></div>' +
+          (active === c.name ? '<span class="chip green">Active</span>' : '<span class="chip gray">Archive</span>') + '</div>' +
+          '<div class="subtle small">' + esc(c.contact || 'Aucun contact') + ' · ' + esc(c.phone || '—') + '</div>' +
+          '<div class="row" style="margin-top:10px">' + mine.slice(0, 3).map(function (p) {
+            return '<span class="chip blue">' + esc(p.name) + '</span>';
+          }).join('') + (mine.length > 3 ? '<span class="chip">+' + (mine.length - 3) + '</span>' : '') + '</div>' +
+          '<div class="row" style="margin-top:14px">' +
+          '<button class="btn btn-ghost btn-sm" data-act="company-activate" data-id="' + esc(c.name) + '">Activer</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="company-project" data-id="' + esc(c.name) + '">+ Projet</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="company-files" data-id="' + esc(c.name) + '">Dossiers</button>' +
+          '<button class="btn btn-primary btn-sm" data-act="company-collab" data-id="' + esc(c.name) + '">Lancer l’IA</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="company-delete" data-id="' + esc(c.id) + '">✕</button>' +
+          '</div></article>';
+      }).join('') + '</div>' : '<div class="empty">Aucune entreprise. Créez un espace pour classer vos projets, fichiers et résultats IA.</div>') +
+      '<div class="section-title" style="margin-top:22px"><h2>Tous les projets</h2></div>' +
+      '<div class="table-wrap"><table><thead><tr><th>Projet</th><th>Entreprise</th><th>Statut</th><th>Montant</th><th>Échéance</th></tr></thead><tbody>' +
+      (projects.length ? projects.map(function (p) {
+        return '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.company || '—') + '</td><td>' + statusChip(p.status) + '</td>' +
+          '<td>' + money(p.amount) + '</td><td>' + date(p.due) + '</td></tr>';
+      }).join('') : '<tr><td colspan="5" class="dim">Aucun projet enregistré.</td></tr>') + '</tbody></table></div>';
+  };
+
+  views.files = function () {
+    var companies = Store.companies();
+    var company = state.fileCompany || Store.db.settings.activeCompany || (companies[0] && companies[0].name) || '';
+    var project = state.fileProject || '';
+    var folders = Store.folders().filter(function (f) { return !company || f.company === company; });
+    var names = [];
+    folders.forEach(function (f) { if (names.indexOf(f.name) < 0) names.push(f.name); });
+    ['Briefs', 'Contrats', 'Visuels', 'IA-prospection', 'IA-conception', 'IA-contact', 'IA-rapports'].forEach(function (n) {
+      if (names.indexOf(n) < 0) names.push(n);
+    });
+    names.unshift('Tous les dossiers');
+    var folder = state.fileFolder || '';
+    var files = (state.filesList || []).filter(function (f) {
+      return (!company || f.company === company) && (!folder || f.folder === folder);
+    });
+    var projects = Store.projectsFor(company);
+    return '<div class="card"><div class="card-head"><div><h2>Dépôt classé</h2>' +
+      '<div class="subtle small">Les IA lisent ces fichiers comme source autorisée pour chaque entreprise et chaque projet.</div></div>' +
+      '<span class="chip blue">' + (Cloud && Cloud.configured() ? 'Serveur connecté' : 'Local') + '</span></div>' +
+      '<div class="filter-grid">' +
+      '<label class="field"><span>Entreprise</span><select id="file-company"><option value="">Toutes</option>' +
+      companies.map(function (c) { return '<option value="' + esc(c.name) + '"' + (company === c.name ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label class="field"><span>Projet</span><select id="file-project"><option value="">Tous</option>' +
+      projects.map(function (p) { return '<option value="' + esc(p.name) + '"' + (project === p.name ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label class="field"><span>Dossier</span><select id="file-folder">' +
+      names.map(function (n) {
+        var v = n === 'Tous les dossiers' ? '' : n;
+        return '<option value="' + esc(v) + '"' + (folder === v ? ' selected' : '') + '>' + esc(n) + '</option>';
+      }).join('') +
+      '</select></label></div>' +
+      '<form id="file-upload-form" class="form-grid" style="margin-top:14px">' +
+      '<label class="field"><span>Fichier à classer</span><input type="file" name="file" required></label>' +
+      '<label class="field"><span>Dossier</span><input name="folder" value="' + esc(folder) + '" required></label>' +
+      '<button class="btn btn-primary" type="submit" style="grid-column:1/-1">↑ Déposer dans le dossier</button></form>' +
+      '<p class="subtle small">Tous types de fichiers : images, audio, vidéo, PDF, documents — jusqu’à 12 Mo. Le contenu est stocké sur votre serveur sécurisé, pas dans le navigateur.</p>' +
+      '<div class="row" style="margin-top:14px;flex-wrap:wrap">' +
+      '<button class="btn btn-primary btn-sm" data-act="media-open">✦ Importer et analyser un média</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="media-report">Voir la dernière analyse</button></div></div>' +
+      '<div class="section-title"><h2>' + files.length + ' fichier(s) · ' + esc(folder) + '</h2>' +
+      '<div class="row"><button class="btn btn-ghost btn-sm" data-act="files-refresh">↻ Actualiser</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="files-note">+ Note texte</button></div></div>' +
+      (files.length ? '<div class="list">' + files.map(function (f) {
+        var id = f.id || '';
+        return '<div class="list-row"><div class="row-main"><b>' + esc(f.name) + '</b>' +
+          '<small>' + esc(f.company || '—') + ' · ' + esc(f.project || '—') + ' · ' + esc(f.folder || '—') +
+          ' · ' + Math.round((f.size || 0) / 1024) + ' Ko · ' + esc(f.source || '') + '</small></div>' +
+          '<div class="row"><button class="btn btn-ghost btn-sm" data-act="file-analyze" data-id="' + esc(id) + '">✦ Analyser</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="file-download" data-id="' + esc(id) + '">↓</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="file-delete" data-id="' + esc(id) + '">✕</button></div></div>';
+      }).join('') + '</div>' : '<div class="empty">Aucun fichier dans ce dossier. Déposez un brief, un contrat ou une note pour que les agents IA puissent le consulter.</div>');
+  };
+
+  views.manager = function () {
+    var F = window.TUSFiles;
+    if (!F) return '<div class="empty">Gestionnaire de fichiers indisponible.</div>';
+    var folders = state.managerFolders || [];
+    var files = state.managerFiles || [];
+    var total = files.reduce(function (s, f) { return s + (f.size || 0); }, 0);
+    return '<div class="kpi-grid">' +
+      kpi((state.managerAll || []).length, 'Dossiers créés', '📂') +
+      kpi(files.length, 'Fichiers dans ce dossier', '📄') +
+      kpi(Math.round(total / 1024), 'Kilooctets conservés', '◈') +
+      kpi(state.managerFolder === 'root' ? 'Racine' : 'Imbriqué', 'Emplacement actuel', '▤') +
+      '</div>' +
+      '<div class="card"><div class="card-head"><div><h2>' + esc(state.managerPath || 'Mes fichiers') + '</h2>' +
+      '<div class="subtle small">Ajoutez des fichiers directement depuis la mémoire du téléphone. Tout reste sur cet appareil, même hors connexion.</div></div>' +
+      '<div class="row"><button class="btn btn-ghost btn-sm" data-act="folder-new">+ Nouveau dossier</button>' +
+      (state.managerFolder !== 'root' ? '<button class="btn btn-ghost btn-sm" data-act="folder-rename" data-id="' + esc(state.managerFolder) + '">✎ Renommer</button>' +
+        '<button class="btn btn-ghost btn-sm" data-act="folder-delete" data-id="' + esc(state.managerFolder) + '">✕ Supprimer</button>' : '') +
+      '</div></div>' +
+      '<div id="drop-zone" class="drop-zone">' +
+      '<div class="drop-icon">📥</div><b>Glissez vos fichiers ici</b>' +
+      '<div class="subtle small">ou choisissez-les dans la mémoire du téléphone</div>' +
+      '<label class="btn btn-primary btn-sm" style="margin-top:10px">＋ Ajouter des fichiers' +
+      '<input type="file" id="manager-input" multiple hidden></label></div></div>' +
+      (folders.length ? '<div class="section-title"><h2>Sous-dossiers · ' + folders.length + '</h2></div>' +
+        '<div class="folder-grid">' + folders.map(function (f) {
+          return '<article class="folder-card"><div class="folder-icon">📁</div>' +
+            '<div class="row-main"><b>' + esc(f.name) + '</b><small>' + esc((f.createdAt || '').slice(0, 10)) + '</small></div>' +
+            '<div class="row"><button class="btn btn-ghost btn-sm" data-act="folder-open" data-id="' + esc(f.id) + '">Ouvrir</button>' +
+            '<button class="btn btn-ghost btn-sm" data-act="folder-rename" data-id="' + esc(f.id) + '">✎</button>' +
+            '<button class="btn btn-ghost btn-sm" data-act="folder-delete" data-id="' + esc(f.id) + '">✕</button></div></article>';
+        }).join('') + '</div>' : '') +
+      '<div class="section-title"><h2>Fichiers · ' + files.length + '</h2>' +
+      '<div class="row"><button class="btn btn-ghost btn-sm" data-act="manager-refresh">↻ Actualiser</button></div></div>' +
+      (files.length ? '<div class="list">' + files.map(function (f) {
+        var icon = /^image\//.test(f.mime || '') ? '🖼' : /^video\//.test(f.mime || '') ? '🎬' : /^audio\//.test(f.mime || '') ? '🎵' : '📄';
+        return '<div class="list-row"><div class="file-icon">' + icon + '</div>' +
+          '<div class="row-main"><b>' + esc(f.name) + '</b><small>' + Math.round((f.size || 0) / 1024) + ' Ko · ' +
+          esc((f.createdAt || '').slice(0, 16).replace('T', ' ')) + ' · ' + esc(f.mime || '') + '</small></div>' +
+          '<div class="row"><button class="btn btn-ghost btn-sm" data-act="file-analyze-local" data-id="' + esc(f.id) + '">✦ Analyser IA</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="file-rename-local" data-id="' + esc(f.id) + '">✎</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="file-move-local" data-id="' + esc(f.id) + '">↪</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="file-download-local" data-id="' + esc(f.id) + '">↓</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="file-delete-local" data-id="' + esc(f.id) + '">✕</button></div></div>';
+      }).join('') + '</div>' : '<div class="empty">Aucun fichier ici. Ajoutez-en depuis la mémoire du téléphone.</div>');
+  };
+
+  views.collab = function () {
+    var companies = Store.companies();
+    var company = Store.db.settings.activeCompany || (companies[0] && companies[0].name) || '';
+    var projects = Store.projectsFor(company);
+    var agents = (state.agentInfo && state.agentInfo.agents) || [
+      { id: 'prospection', name: 'Agent 1 · Prospection & recherche', provider: 'perplexity' },
+      { id: 'conception', name: 'Agent 2 · Maquettes & devis', provider: 'gemini' },
+      { id: 'contact', name: 'Agent 3 · Contact client & production', provider: 'anthropic' },
+      { id: 'rapports', name: 'Agent 4 · Rapports, contrôle & publication', provider: 'openai' }
+    ];
+    var providers = (state.cloudInfo && state.cloudInfo.ai) || {};
+    var result = state.pipelineResult;
+    return '<div class="two-col">' +
+      '<div class="card"><div class="card-head"><div><h2>Lancer une mission</h2>' +
+      '<div class="subtle small">La prospection transmet au concepteur, qui transmet au producteur, qui transmet au contrôleur.</div></div></div>' +
+      '<form id="pipeline-form" class="form-grid">' +
+      '<label class="field"><span>Entreprise</span><select name="company" id="pipeline-company"><option value="">Choisir</option>' +
+      companies.map(function (c) { return '<option value="' + esc(c.name) + '"' + (company === c.name ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label class="field"><span>Projet</span><select name="project" id="pipeline-project"><option value="">Tous les projets</option>' +
+      projects.map(function (p) { return '<option value="' + esc(p.name) + '">' + esc(p.name) + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label class="field full"><span>Sujet de la mission</span><input name="topic" required placeholder="Ex. Prospecter des pharmacies à Ouagadougou"></label>' +
+      '<label class="field full"><span>Recherches déjà collectées (ou laissées vides)</span><textarea name="research" rows="6" id="pipeline-research" placeholder="Collez ici les résultats de la fenêtre de recherche web…"></textarea></label>' +
+      '<div class="field full"><label class="switch"><input type="checkbox" name="publish"> Autoriser la publication sur les réseaux connectés</label></div>' +
+      '<div class="row full" style="grid-column:1/-1"><button class="btn btn-ghost btn-sm" type="button" data-act="research-open">🔎 Ouvrir la fenêtre de recherche</button>' +
+      '<button class="btn btn-primary" type="submit">⇄ Lancer les 4 agents</button></div></form></div>' +
+      '<div class="stack"><div class="card"><div class="card-head"><h2>Chaîne de collaboration</h2>' +
+      '<span class="chip ' + (providers.perplexity || providers.openai || providers.gemini || providers.anthropic ? 'green' : 'amber') + '">' +
+      (providers.perplexity || providers.openai || providers.gemini || providers.anthropic ? 'IA connectées' : 'Clés à configurer') + '</span></div>' +
+      '<div class="pipeline-flow">' + agents.map(function (a, i) {
+        var ready = !!providers[a.provider];
+        return '<div class="pipeline-node"><span class="pipeline-num">' + (i + 1) + '</span>' +
+          '<div><b>' + esc(a.name || a.id) + '</b><div class="subtle small">' + esc(a.role || a.provider || '') + '</div></div>' +
+          '<span class="chip ' + (ready ? 'green' : 'gray') + '">' + esc(a.provider || 'auto') + '</span></div>';
+      }).join('') + '</div>' +
+      '<button class="btn btn-ghost btn-sm" style="margin-top:12px" data-act="agents-config">Configurer les agents</button></div>' +
+      '<div class="card"><div class="card-head"><h2>Dernier résultat</h2></div>' +
+      (result ? '<div class="subtle small">' + esc(result.note || '') + '</div>' +
+        '<div class="result-grid">' + (result.stages || []).map(function (s) {
+          return '<div class="result-card"><h3>' + esc(s.name || s.id) + '</h3>' +
+            '<div class="subtle small">' + esc(s.provider || '—') + (s.file ? ' · enregistré' : '') + '</div>' +
+            '<div class="copy-box">' + esc((s.text || s.error || '').slice(0, 1400)) + '</div></div>';
+        }).join('') + '</div>' : '<div class="empty">Lancez une mission pour voir les quatre étapes et leurs fichiers classés.</div>') +
+      '</div></div></div>';
   };
 
   views.leads = function () {
@@ -266,7 +463,10 @@
         return '<div class="card robot-card"><div class="card-head"><h3><span aria-hidden="true">' + esc(r.icon) + '</span> ' + esc(r.name) + '</h3>' +
           (last.lastRun ? '<span class="chip green">Exécuté</span>' : '<span class="chip gray">Local</span>') + '</div>' +
           '<p class="subtle small">' + esc(r.desc) + '</p>' +
-          '<div class="subtle small">Dernière exécution serveur : ' + esc(last.lastRun ? time(last.lastRun) + ' · ' + (last.lastResult || '') : 'aucune') + '</div>' +
+          '<div class="row"><span class="chip ' + (r.enabled === false ? 'gray' : 'green') + '">' +
+          (r.enabled === false ? 'Désactivé' : 'Quotidien · ' + (r.hour != null ? String(r.hour).padStart(2, '0') + 'h00' : '08h00')) + '</span>' +
+          '<span class="chip blue">' + esc(r.provider || 'auto') + '</span></div>' +
+          '<div class="subtle small" style="margin-top:8px">Dernière exécution serveur : ' + esc(last.lastRun ? time(last.lastRun) + ' · ' + (last.lastResult || '') : 'aucune') + '</div>' +
           '<div class="row" style="margin-top:12px"><button class="btn btn-ghost btn-sm" data-act="robot-local" data-id="' + esc(r.id) + '">Aperçu local</button>' +
           '<button class="btn btn-ghost btn-sm" data-act="robot-dry" data-id="' + esc(r.id) + '">Générer serveur</button>' +
           '<button class="btn btn-primary btn-sm" data-act="robot-run" data-id="' + esc(r.id) + '">Exécuter</button></div></div>';
@@ -287,11 +487,15 @@
       kpi((Store.db.shop.orders || []).length, 'Ventes enregistrées', '↗') +
       kpi(suggestions.length, 'Suggestions IA', '✺') +
       '</div>' +
-      '<div class="section-title"><h2>Catalogue canonique</h2><div class="row">' +
+      '<div class="section-title"><h2>Catalogue synchronisé</h2><div class="row">' +
+      '<span class="chip ' + (Cloud && Cloud.configured() ? 'green' : 'amber') + '">' +
+      (Cloud && Cloud.configured() ? 'Synchronisé avec le site' : 'Synchronisé sur cet appareil') + '</span>' +
       '<button class="btn btn-ghost btn-sm" data-act="shop-recommend">✺ Suggestions IA</button>' +
       '<button class="btn btn-primary btn-sm" data-act="shop-new">+ Nouvelle offre</button></div></div>' +
       '<div class="shop-grid">' + products.map(function (p) {
-        return '<article class="shop-card"><img src="' + esc(p.img) + '" alt="" loading="lazy">' +
+        var imgs = window.TUSCatalog ? window.TUSCatalog.images(p) : (p.img ? [p.img] : []);
+        return '<article class="shop-card"><img src="' + esc(imgs[0] || '') + '" alt="" loading="lazy">' +
+          (imgs.length > 1 ? '<span class="chip blue shop-count">' + imgs.length + ' images</span>' : '') +
           '<div class="shop-card-body"><div class="spread"><b>' + esc(p.name) + '</b>' + (p.popular ? '<span class="chip red">Top</span>' : '') + '</div>' +
           '<p>' + esc(p.short) + '</p><div class="spread"><span class="chip blue">' + money(p.price) + '</span>' +
           '<span class="subtle small">' + esc(p.unit) + '</span></div>' +
@@ -348,25 +552,57 @@
       '<div class="field full"><label class="switch"><input type="checkbox" name="autoProjects" ' + (s.autoProjects ? 'checked' : '') + '> Créer un projet depuis les leads scorés</label></div>' +
       '<div class="field full"><label class="switch"><input type="checkbox" name="autoSocial" ' + (s.autoSocial ? 'checked' : '') + '> Préparer une publication pour les leads chauds</label></div>' +
       '<button class="btn btn-primary" type="submit" style="grid-column:1/-1">Enregistrer</button></form></div>' +
-      '<div class="stack"><div class="card"><div class="card-head"><h2>Serveur IA & publication</h2><span class="chip blue">Clés côté serveur</span></div>' +
+      '<div class="stack">' +
+      '<div class="card"><div class="card-head"><h2>Compte local</h2><span class="chip green">' +
+      esc((Accounts && Accounts.current() && Accounts.current().email) || 'Session active') + '</span></div>' +
+      '<div class="row"><button class="btn btn-ghost btn-sm" data-act="account-logout">Verrouiller l’application</button></div></div>' +
+      '<div class="card"><div class="card-head"><h2>Serveur sécurisé</h2><span class="chip blue">Clés côté serveur</span></div>' +
       '<form id="proxy-form" class="form-grid">' +
-      '<label class="field full"><span>URL du proxy sécurisé</span><input name="url" type="url" placeholder="https://mon-serveur.example" value="' + esc(window.TUSAI ? window.TUSAI.getURL() : '') + '"></label>' +
-      '<label class="field"><span>Clé d’accès au serveur</span><input name="key" type="password" autocomplete="off" placeholder="X-Tus-Key (facultatif)"></label>' +
+      '<label class="field full"><span>URL du serveur sécurisé</span><input name="url" type="url" placeholder="https://mon-serveur.onrender.com" value="' + esc(Cloud ? Cloud.url() : (window.TUSAI ? window.TUSAI.getURL() : '')) + '"></label>' +
+      '<label class="field"><span>Clé d’accès (X-Tus-Key)</span><input name="key" type="password" autocomplete="off" placeholder="Facultatif"></label>' +
       '<div class="field"><button class="btn btn-ghost btn-sm" type="submit">Enregistrer</button></div></form>' +
       '<div id="proxy-status" class="subtle small" style="margin-top:10px">Non configuré.</div>' +
-      '<p class="subtle small">ChatGPT, Gemini, Claude et les tokens sociaux sont lus par le serveur, jamais par le navigateur. Voir <code>server/README.md</code>.</p></div>' +
-      '<div class="card"><div class="card-head"><h2>Connecteurs</h2><span class="chip amber">Validation requise</span></div>' +
-      rows.map(function (r) {
-        var on = r[0] === 'whatsapp' ? !!connectors.whatsapp : !!connectors[r[0]];
-        return '<div class="connector"><div><b>' + esc(r[1]) + '</b><div class="subtle small">' + (on ? 'Disponible' : 'Non connecté — clé ou permission requise') + '</div></div>' +
-          '<span class="chip ' + (on ? 'green' : 'gray') + '">' + (on ? 'Actif' : 'Non connecté') + '</span></div>';
-      }).join('') + '</div>' +
-      '<div class="card"><div class="card-head"><h2>Sauvegarde</h2></div><div class="row">' +
+      '<div class="row" style="margin-top:10px"><button class="btn btn-ghost btn-sm" data-act="cloud-refresh">↻ Tester la connexion</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="robots-config">Configurer les robots</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="agents-config">Configurer les agents</button></div>' +
+      '<p class="subtle small">Les clés saisies ci-dessous sont envoyées au serveur puis chiffrées dans son coffre. Elles ne sont jamais renvoyées à l’application.</p></div>' +
+      '<div class="card"><div class="card-head"><h2>Comptes IA</h2><span class="chip amber">Saisie différée possible</span></div>' +
+      '<div class="account-grid">' + (Cloud ? Cloud.PROVIDERS.map(function (p) {
+        var on = !!(state.cloudInfo && state.cloudInfo.ai && state.cloudInfo.ai[p.id]);
+        return '<form class="account-row" data-account="' + esc(p.id) + '">' +
+          '<div><b>' + esc(p.label) + '</b><div class="subtle small">' + (on ? 'Connecté · prêt à exécuter ses tâches' : 'Non connecté') + '</div></div>' +
+          '<div class="row"><input type="password" name="value" placeholder="' + esc(p.hint) + '" autocomplete="off" aria-label="Clé ' + esc(p.name) + '">' +
+          '<button class="btn btn-ghost btn-sm" type="submit">' + (on ? 'Remplacer' : 'Connecter') + '</button>' +
+          (on ? '<button class="btn btn-ghost btn-sm" type="button" data-act="account-remove" data-id="' + esc(p.id) + '">Retirer</button>' : '') +
+          '</div></form>';
+      }).join('') : '<div class="empty">Module de connexion indisponible.</div>') + '</div></div>' +
+      '<div class="card"><div class="card-head"><h2>Réseaux sociaux</h2><span class="chip amber">Publication réelle uniquement</span></div>' +
+      (Cloud ? Cloud.NETWORKS.map(function (n) {
+        var on = !!(state.cloudInfo && state.cloudInfo.social && state.cloudInfo.social[n.id]);
+        return '<form class="account-row" data-network="' + esc(n.id) + '"><div><b>' + esc(n.name) + '</b>' +
+          '<div class="subtle small">' + (on ? 'Connecté' : 'Non connecté — publication désactivée') + '</div></div>' +
+          '<div class="row">' + n.fields.map(function (f) {
+            return '<input type="password" name="' + esc(f.id) + '" placeholder="' + esc(f.label) + '" autocomplete="off" aria-label="' + esc(f.label) + '">';
+          }).join('') + '<button class="btn btn-ghost btn-sm" type="submit">Enregistrer</button></div></form>';
+      }).join('') : '') + '</div>' +
+      '<div class="card"><div class="card-head"><h2>Google Drive</h2>' +
+      '<span class="chip ' + (state.cloudInfo && state.cloudInfo.google && state.cloudInfo.google.connected ? 'green' : 'gray') + '">' +
+      (state.cloudInfo && state.cloudInfo.google && state.cloudInfo.google.connected ? esc(state.cloudInfo.google.email || 'Connecté') : 'Non connecté') + '</span></div>' +
+      (Cloud ? '<form id="google-form" class="form-grid">' +
+        Cloud.GOOGLE_FIELDS.map(function (f) {
+          return '<label class="field full"><span>' + esc(f.label) + '</span><input name="' + esc(f.id) + '" type="text" autocomplete="off" placeholder="' + esc(f.id === 'google_redirect_uri' ? 'https://mon-serveur.onrender.com/api/google/callback' : 'À saisir une fois') + '"></label>';
+        }).join('') +
+        '<button class="btn btn-ghost" type="submit" style="grid-column:1/-1">Enregistrer la configuration Google</button></form>' : '') +
+      '<div class="row" style="margin-top:12px"><button class="btn btn-primary btn-sm" data-act="google-connect">Se connecter à Google Drive</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="google-sync">☁ Synchroniser maintenant</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="google-backups">Voir les sauvegardes</button></div>' +
+      '<p class="subtle small">Scope demandé : fichiers créés par cette application uniquement. Aucun accès à vos autres documents.</p></div>' +
+      '<div class="card"><div class="card-head"><h2>Sauvegarde locale</h2></div><div class="row">' +
       '<button class="btn btn-ghost btn-sm" data-act="settings-export">↓ Exporter JSON</button>' +
       '<button class="btn btn-ghost btn-sm" data-act="settings-import">↑ Importer JSON</button>' +
       '<button class="btn btn-ghost btn-sm" data-act="settings-reset">Réinitialiser</button>' +
       '<input type="file" id="import-file" accept="application/json" hidden></div>' +
-      '<p class="subtle small">Toutes les données restent sur cet appareil. Aucune information n’est envoyée à un service externe sans votre action.</p></div></div></div>';
+      '<p class="subtle small">Export local immédiat. Pour une synchronisation automatique, connectez Google Drive ci-dessus.</p></div></div></div>';
   };
 
   /* ---------- Actions ---------- */
@@ -469,19 +705,100 @@
       '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
       '<button class="btn btn-primary" type="submit">Ajouter</button></div></form>');
   }
+  function shopGallery(imgs) {
+    return '<div class="shop-gallery" id="shop-gallery">' + (imgs || []).map(function (src, i) {
+      return '<div class="shop-thumb"><img src="' + esc(src) + '" alt="Image ' + (i + 1) + '">' +
+        '<button type="button" class="thumb-remove" data-act="shop-image-remove" data-index="' + i + '" aria-label="Retirer">✕</button>' +
+        '<button type="button" class="thumb-move" data-act="shop-image-left" data-index="' + i + '" aria-label="Déplacer à gauche">‹</button>' +
+        '</div>';
+    }).join('') + '</div>';
+  }
+
+  function shopForm(product, isNew) {
+    var p = product || {};
+    var CAT = window.TUSCatalog;
+    var imgs = CAT ? CAT.images(p) : (p.img ? [p.img] : []);
+    state.shopDraftImages = imgs.slice();
+    var cats = (CAT ? CAT.categories() : ((window.TU_CATALOGUE || {}).categories || []));
+    openModal('<h3>' + (isNew ? 'Nouvelle offre' : 'Modifier · ' + esc(p.name)) + '</h3>' +
+      '<p class="subtle small">Les modifications sont visibles immédiatement sur le site public (même origine) et envoyées au serveur sécurisé si celui-ci est configuré.</p>' +
+      '<form id="shop-form" class="form-grid" data-id="' + esc(p.id || '') + '" data-new="' + (isNew ? '1' : '0') + '">' +
+      '<label class="field full"><span>Nom de l’offre</span><input name="name" required value="' + esc(p.name || '') + '"></label>' +
+      '<label class="field"><span>Prix de départ (FCFA)</span><input name="price" type="number" min="0" required value="' + Number(p.price || 0) + '"></label>' +
+      '<label class="field"><span>Unité</span><input name="unit" value="' + esc(p.unit || 'forfait') + '"></label>' +
+      '<label class="field"><span>Catégorie</span><select name="category">' +
+      cats.map(function (c) { return '<option value="' + esc(c.id) + '"' + (p.category === c.id ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label class="field"><span>Délai</span><input name="delay" value="' + esc(p.delay || '') + '" placeholder="48 h, 5 jours…"></label>' +
+      '<label class="field"><span>Badge</span><input name="badge" value="' + esc(p.badge || '') + '" placeholder="Le plus demandé"></label>' +
+      '<div class="field"><label class="switch"><input type="checkbox" name="popular"' + (p.popular ? ' checked' : '') + '> Offre populaire</label></div>' +
+      '<label class="field full"><span>Description courte</span><textarea name="short" rows="3">' + esc(p.short || '') + '</textarea></label>' +
+      '<label class="field full"><span>Description complète</span><textarea name="desc" rows="4">' + esc(p.desc || '') + '</textarea></label>' +
+      '<label class="field full"><span>Livrables (un par ligne)</span><textarea name="deliverables" rows="3">' + esc((p.deliverables || []).join('\n')) + '</textarea></label>' +
+      '<label class="field full"><span>Automatisations IA (une par ligne)</span><textarea name="ai" rows="2">' + esc((p.ai || []).join('\n')) + '</textarea></label>' +
+      '<div class="field full"><div class="gate-divider">Images du produit — la première sert de vignette sur le site</div></div>' +
+      '<div class="field full">' + shopGallery(state.shopDraftImages) +
+      '<label class="btn btn-ghost btn-sm" style="margin-top:10px">＋ Ajouter des images' +
+      '<input type="file" id="shop-images-input" accept="image/*" multiple hidden></label></div>' +
+      '<div class="modal-actions" style="grid-column:1/-1">' +
+      (!isNew ? '<button class="btn btn-ghost" type="button" data-act="shop-delete">Supprimer l’offre</button>' : '') +
+      '<button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
+      '<button class="btn btn-primary" type="submit">Enregistrer et synchroniser</button></div></form>');
+    var input = $('#shop-images-input');
+    if (input) input.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(input.files || []);
+      if (!files.length) return;
+      toast('Préparation de ' + files.length + ' image(s)…');
+      files.reduce(function (chain, file) {
+        return chain.then(function () {
+          return new Promise(function (resolve) {
+            CAT.prepareImage(file, function (err, dataUrl) {
+              if (!err && dataUrl && state.shopDraftImages.indexOf(dataUrl) < 0) state.shopDraftImages.push(dataUrl);
+              resolve();
+            });
+          });
+        });
+      }, Promise.resolve()).then(function () {
+        var box = $('#shop-gallery');
+        if (box) box.outerHTML = shopGallery(state.shopDraftImages);
+        toast('Images ajoutées');
+      });
+      input.value = '';
+    });
+  }
   function shopEdit(id) {
     var p = Store.products().find(function (x) { return x.id === id; });
-    if (!p) return;
-    var o = Store.db.shop.overrides[id] || {};
-    openModal('<h3>Modifier · ' + esc(p.name) + '</h3><form id="shop-form" class="form-grid">' +
-      '<label class="field full"><span>Nom affiché</span><input name="name" value="' + esc(o.name || p.name) + '"></label>' +
-      '<label class="field"><span>Prix FCFA</span><input name="price" type="number" min="0" value="' + Number(o.price || p.price) + '"></label>' +
-      '<label class="field"><span>Unité</span><input name="unit" value="' + esc(o.unit || p.unit) + '"></label>' +
-      '<label class="field full"><span>Description courte</span><textarea name="short" rows="3">' + esc(o.short || p.short) + '</textarea></label>' +
-      '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
-      '<button class="btn btn-primary" type="submit">Enregistrer</button></div></form>');
-    var form = $('#shop-form');
-    if (form) form.dataset.id = id;
+    if (p) shopForm(p, false);
+  }
+  function shopNewForm() {
+    shopForm({ category: 'outils', unit: 'forfait', price: 0, images: [] }, true);
+  }
+  function shopSave(form) {
+    var CAT = window.TUSCatalog;
+    if (!CAT) return toast('Catalogue partagé indisponible', true);
+    var fd = new FormData(form);
+    var id = form.dataset.id || '';
+    var lines = function (v) { return String(v || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean); };
+    var product = {
+      id: id || ('offre-' + Date.now().toString(36)),
+      name: String(fd.get('name') || '').trim(),
+      price: Number(fd.get('price') || 0), unit: String(fd.get('unit') || 'forfait'),
+      category: String(fd.get('category') || 'outils'), delay: String(fd.get('delay') || ''),
+      badge: String(fd.get('badge') || ''), popular: !!fd.get('popular'),
+      short: String(fd.get('short') || ''), desc: String(fd.get('desc') || ''),
+      deliverables: lines(fd.get('deliverables')), ai: lines(fd.get('ai')),
+      images: (state.shopDraftImages || []).slice()
+    };
+    product.img = product.images[0] || '';
+    if (!product.name) return toast('Nom requis', true);
+    try {
+      CAT.saveProduct(product);
+      closeModal();
+      Store.log('Boutique synchronisée : ' + product.name + ' · ' + product.price + ' FCFA');
+      Store.save();
+      toast('Offre enregistrée · visible sur le site');
+      go('shop');
+    } catch (e) { toast(e.message, true); }
   }
   function clientForm() {
     openModal('<h3>Ajouter un client</h3><form id="client-form" class="form-grid">' +
@@ -506,18 +823,20 @@
 
   /* ---------- Assistant & connexions ---------- */
   function refreshConnections() {
-    var AI = window.TUSAI;
-    if (!AI) return;
     var badge = $('#ai-mode'), box = $('#proxy-status');
-    AI.status().then(function (s) {
+    function paint(s) {
       var live = s.ok && Object.keys(s.ai || {}).some(function (k) { return s.ai[k]; });
       if (badge) badge.textContent = live ? 'IA temps réel connectée' : 'Moteur local inclus';
       if (!box) return;
       if (!s.configured) { box.innerHTML = 'Serveur non configuré — moteur local actif.'; return; }
       if (!s.ok) { box.innerHTML = 'Serveur injoignable : ' + esc(s.error || 'erreur'); return; }
-      box.innerHTML = 'IA : ' + Object.keys(s.ai || {}).filter(function (k) { return s.ai[k]; }).join(', ') +
-        ' · Réseaux : ' + Object.keys(s.social || {}).filter(function (k) { return s.social[k]; }).join(', ') + '.';
-    });
+      var ai = Object.keys(s.ai || {}).filter(function (k) { return s.ai[k]; }).join(', ') || 'aucune';
+      var social = Object.keys(s.social || {}).filter(function (k) { return s.social[k]; }).join(', ') || 'aucun';
+      var drive = s.google && s.google.connected ? ' · Drive connecté' : '';
+      box.innerHTML = 'IA : ' + ai + ' · Réseaux : ' + social + drive + '.';
+    }
+    if (state.cloudInfo) { paint(state.cloudInfo); return; }
+    if (window.TUSAI) window.TUSAI.status().then(paint);
   }
   function assistantAsk(raw) {
     var q = A.norm ? A.norm(raw) : String(raw).toLowerCase();
@@ -634,6 +953,531 @@
     }).catch(function (err) { toast(err.message, true); });
   }
 
+  /* ---------- Entreprises, dossiers et collaboration IA ---------- */
+  function companyForm() {
+    openModal('<h3>Nouvelle entreprise</h3><form id="company-form" class="form-grid">' +
+      '<label class="field full"><span>Nom de l’entreprise</span><input name="name" required placeholder="Ex. Maison Kaboré"></label>' +
+      '<label class="field"><span>Secteur</span><input name="sector" placeholder="Commerce, pharmacie, école…"></label>' +
+      '<label class="field"><span>Ville</span><input name="city" placeholder="Ouagadougou"></label>' +
+      '<label class="field full"><span>Contact principal</span><input name="contact" placeholder="Nom du responsable"></label>' +
+      '<label class="field"><span>Téléphone</span><input name="phone" inputmode="tel"></label>' +
+      '<label class="field"><span>E-mail</span><input name="email" type="email"></label>' +
+      '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
+      '<button class="btn btn-primary" type="submit">Créer l’espace</button></div></form>');
+  }
+  function companyProject(name) {
+    newProject();
+    var form = $('#project-form');
+    if (form && name) {
+      form.dataset.company = name;
+      var client = form.querySelector('[name="client"]');
+      if (client && !client.value) client.value = name;
+    }
+  }
+  function loadFiles() {
+    if (!Cloud || !Cloud.configured()) { state.filesList = []; return Promise.resolve(0); }
+    return Cloud.files(state.fileCompany, state.fileProject, state.fileFolder).then(function (list) {
+      state.filesList = list || [];
+      return state.filesList.length;
+    }).catch(function (e) { toast(e.message, true); state.filesList = []; return 0; });
+  }
+  function fileNoteForm() {
+    openModal('<h3>Nouvelle note classée</h3><form id="note-form" class="form-grid">' +
+      '<label class="field full"><span>Titre</span><input name="name" required placeholder="Ex. Brief client du 26/11"></label>' +
+      '<label class="field full"><span>Texte</span><textarea name="text" rows="8" required></textarea></label>' +
+      '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
+      '<button class="btn btn-primary" type="submit">Enregistrer</button></div></form>');
+  }
+
+  /* ---------- Analyse multimédia par IA ---------- */
+  function mediaModal() {
+    if (!Cloud || !Cloud.configured()) return toast('Configurez le serveur sécurisé pour analyser un média.', true);
+    var companies = Store.companies();
+    var company = state.fileCompany || Store.db.settings.activeCompany || (companies[0] && companies[0].name) || '';
+    var projects = Store.projectsFor(company);
+    var project = state.fileProject || '';
+    openModal('<h3>✦ Analyser un média par IA</h3>' +
+      '<p class="subtle small">Image, audio, vidéo ou document : le fichier est classé puis analysé. ' +
+      'Les informations extraites peuvent lancer directement une mission complète.</p>' +
+      '<form id="media-form" class="form-grid">' +
+      '<label class="field full"><span>Fichier à analyser</span>' +
+      '<input type="file" name="file" required accept="image/*,audio/*,video/*,.pdf,.txt,.md,.csv,.json,.xml,.html,.docx"></label>' +
+      '<div class="field full" id="media-preview" class="media-preview" hidden></div>' +
+      '<label class="field"><span>Entreprise</span><select name="company">' +
+      '<option value="">— Choisir —</option>' +
+      companies.map(function (c) { return '<option value="' + esc(c.name) + '"' + (company === c.name ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label class="field"><span>Projet</span><select name="project"><option value="">— Aucun —</option>' +
+      projects.map(function (p) { return '<option value="' + esc(p.name) + '"' + (project === p.name ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label class="field full"><span>Question à l’IA (facultatif)</span>' +
+      '<textarea name="question" rows="2" placeholder="Ex. Quels sont les coordonnées et le besoin exprimé dans ce document ?"></textarea></label>' +
+      '<div class="field full"><label class="switch"><input type="checkbox" name="mission"> Créer et exécuter une mission complète à partir des informations extraites</label></div>' +
+      '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
+      '<button class="btn btn-primary" type="submit">✦ Analyser le média</button></div></form>');
+    var input = document.querySelector('#media-form [name="file"]');
+    if (input) input.addEventListener('change', function () {
+      var box = $('#media-preview');
+      if (!box) return;
+      var file = input.files && input.files[0];
+      if (!file) { box.hidden = true; return; }
+      box.hidden = false;
+      box.innerHTML = '';
+      if (/^image\//.test(file.type)) {
+        var img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.alt = 'Aperçu du fichier';
+        box.appendChild(img);
+      }
+      var info = document.createElement('div');
+      info.className = 'subtle small';
+      info.textContent = (file.name || 'fichier') + ' · ' + Math.round(file.size / 1024) + ' Ko · ' + (file.type || 'type inconnu');
+      box.appendChild(info);
+    });
+  }
+
+  function fileToPayload(file, extra) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('Lecture du fichier impossible')); };
+      reader.onload = function () {
+        var dataUrl = String(reader.result || '');
+        var comma = dataUrl.indexOf(',');
+        if (comma < 0) return reject(new Error('Format de fichier illisible'));
+        var payload = {
+          name: file.name || 'fichier', mime: file.type || 'application/octet-stream',
+          content: dataUrl.slice(comma + 1),
+          company: extra.company || '', project: extra.project || '',
+          folder: extra.mission ? 'Médias' : 'Médias',
+          question: extra.question || ''
+        };
+        resolve(payload);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function mediaAnalyze(form) {
+    if (!Cloud || !Cloud.configured()) return toast('Serveur non configuré.', true);
+    var fd = new FormData(form);
+    var file = fd.get('file');
+    if (!file || !file.size) return toast('Choisissez un fichier', true);
+    var extra = {
+      company: fd.get('company') || '', project: fd.get('project') || '',
+      question: fd.get('question') || '', mission: !!fd.get('mission')
+    };
+    toast(extra.mission ? 'Analyse puis mission des 4 agents en cours…' : 'Analyse du média en cours…');
+    fileToPayload(file, extra).then(function (payload) {
+      var call = extra.mission ? Cloud.mediaMission(payload) : Cloud.analyzeMedia(payload);
+      return call.then(function (res) {
+        state.lastMediaReport = extra.mission ? (res.analysis || res) : res;
+        state.filesList = state.filesList || [];
+        loadFiles();
+        if (extra.mission) {
+          state.pipelineResult = res;
+          closeModal();
+          go('collab');
+          toast('Mission terminée à partir du média · ' + ((res.stages || []).length) + ' étapes');
+        } else {
+          showMediaReport(state.lastMediaReport, false);
+        }
+      });
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  function analyzeExistingFile(id) {
+    if (!Cloud || !Cloud.configured()) return toast('Serveur non configuré.', true);
+    var meta = (state.filesList || []).find(function (f) { return f.id === id; }) || {};
+    toast('Analyse de ' + (meta.name || 'fichier') + '…');
+    Cloud.downloadFile(id).then(function (res) {
+      return Cloud.analyzeMedia({
+        name: (res.meta && res.meta.name) || meta.name || 'fichier',
+        mime: (res.meta && res.meta.mime) || meta.mime || 'application/octet-stream',
+        content: res.content || '', company: meta.company || '', project: meta.project || '',
+        folder: meta.folder || 'Médias', question: ''
+      });
+    }).then(function (report) {
+      state.lastMediaReport = report;
+      showMediaReport(report, true);
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  function mediaEntities(report) {
+    var entities = (report && report.entities) || {};
+    var rows = [];
+    Object.keys(entities).forEach(function (key) {
+      var vals = entities[key] || [];
+      if (vals.length) rows.push('<div><b>' + esc(key) + '</b> : ' + esc(vals.join(', ')) + '</div>');
+    });
+    return rows.length ? rows.join('') : '<div class="subtle small">Aucune entité détectée.</div>';
+  }
+
+  function showMediaReport(report, fromExisting) {
+    if (!report) return toast('Aucune analyse disponible.', true);
+    var mission = mediaMissionFromReport(report);
+    openModal('<h3>✦ Analyse · ' + esc(report.name || 'média') + '</h3>' +
+      '<div class="media-report">' +
+      '<div class="row"><span class="chip blue">' + esc(report.kind || 'fichier') + '</span>' +
+      '<span class="chip green">' + esc(report.engine || 'local') + '</span>' +
+      '<span class="chip ' + (report.confidence === 'faible' ? 'amber' : 'gray') + '">' + esc(report.confidence || '—') + '</span></div>' +
+      '<h4 style="margin:14px 0 6px">Synthèse</h4><div class="subtle">' + esc(report.summary || '') + '</div>' +
+      '<h4 style="margin:14px 0 6px">Faits observés</h4><div class="media-facts">' +
+      ((report.details || []).length ? report.details.map(function (d) { return '<div>· ' + esc(d) + '</div>'; }).join('') : '<div class="subtle small">Aucun fait détaillé.</div>') +
+      '</div><h4 style="margin:14px 0 6px">Informations détectées</h4><div class="media-entities">' + mediaEntities(report) + '</div>' +
+      '<h4 style="margin:14px 0 6px">Mission suggérée</h4><div class="copy-box">' + esc(report.suggestedMission || 'Aucune suggestion') + '</div>' +
+      '<div class="subtle small" style="margin-top:8px">Rapport enregistré dans : ' + esc(report.analysisFile || (report.file && report.file.path) || '') + '</div>' +
+      (report.error ? '<div class="gate-error" style="margin-top:10px">' + esc(report.error) + '</div>' : '') +
+      '</div><div class="modal-actions" style="margin-top:16px;flex-wrap:wrap">' +
+      '<button class="btn btn-ghost" type="button" data-act="modal-close">Fermer</button>' +
+      '<button class="btn btn-ghost" type="button" data-act="media-copy">Copier la synthèse</button>' +
+      '<button class="btn btn-ghost" type="button" data-act="media-edit-mission">Modifier la mission</button>' +
+      '<button class="btn btn-primary" type="button" data-act="media-launch">⇄ Lancer la mission complète</button></div>');
+    state.mediaMissionDraft = mission;
+  }
+
+  function mediaMissionFromReport(report) {
+    return {
+      company: report.company || Store.db.settings.activeCompany || '',
+      project: report.project || '',
+      topic: report.suggestedMission || ('Créer une mission à partir de ' + (report.name || 'ce fichier')),
+      research: (report.summary || '') + '\n\n' + (report.details || []).join('\n- ') +
+                '\n\nSignaux : ' + JSON.stringify(report.entities || {}),
+      publish: false
+    };
+  }
+
+  function mediaMissionEditor() {
+    var mission = state.mediaMissionDraft || {};
+    var companies = Store.companies();
+    var projects = Store.projectsFor(mission.company);
+    openModal('<h3>Modifier la mission</h3>' +
+      '<p class="subtle small">Les informations extraites du média sont reprises automatiquement. Ajustez-les avant de lancer les agents.</p>' +
+      '<form id="media-mission-form" class="form-grid">' +
+      '<label class="field"><span>Entreprise</span><select name="company"><option value="">—</option>' +
+      companies.map(function (c) { return '<option value="' + esc(c.name) + '"' + (mission.company === c.name ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label class="field"><span>Projet</span><select name="project"><option value="">—</option>' +
+      projects.map(function (p) { return '<option value="' + esc(p.name) + '"' + (mission.project === p.name ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') +
+      '</select></label>' +
+      '<label class="field full"><span>Objectif de la mission</span><input name="topic" value="' + esc(mission.topic || '') + '" required></label>' +
+      '<label class="field full"><span>Informations transmises aux agents</span><textarea name="research" rows="10">' + esc(mission.research || '') + '</textarea></label>' +
+      '<div class="field full"><label class="switch"><input type="checkbox" name="publish"' + (mission.publish ? ' checked' : '') + '> Autoriser la publication sur les réseaux connectés</label></div>' +
+      '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="media-back">Retour</button>' +
+      '<button class="btn btn-primary" type="submit">⇄ Lancer les 4 agents</button></div></form>');
+  }
+
+  function mediaLaunchMission(mission) {
+    if (!Cloud || !Cloud.configured()) return toast('Serveur non configuré.', true);
+    toast('Les quatre agents travaillent à partir du média…');
+    Cloud.runPipeline(mission).then(function (res) {
+      state.pipelineResult = res;
+      Store.log('Analyse média → mission : ' + String(mission.topic || '').slice(0, 90));
+      Store.save();
+      closeModal();
+      go('collab');
+      toast('Mission terminée · ' + ((res.stages || []).length) + ' étapes enregistrées');
+      loadFiles();
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  /* ---------- Gestionnaire de fichiers local ---------- */
+  function loadManager() {
+    var F = window.TUSFiles;
+    if (!F) return Promise.resolve();
+    return Promise.all([
+      F.allFolders(), F.listFolders(state.managerFolder), F.listFiles(state.managerFolder)
+    ]).then(function (arr) {
+      state.managerAll = arr[0] || [];
+      state.managerFolders = arr[1] || [];
+      state.managerFiles = arr[2] || [];
+      var map = {};
+      state.managerAll.forEach(function (f) { map[f.id] = f; });
+      var parts = [], cur = map[state.managerFolder], guard = 0;
+      while (cur && cur.id !== 'root' && guard++ < 30) {
+        parts.unshift(cur.name);
+        cur = map[cur.parent];
+      }
+      state.managerPath = parts.join(' / ') || 'Mes fichiers';
+      if (page === 'manager') { content.innerHTML = views.manager(); bindManager(); }
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  function folderNewForm() {
+    openModal('<h3>Nouveau dossier</h3><form id="folder-form" class="form-grid">' +
+      '<label class="field full"><span>Nom du dossier</span><input name="name" required maxlength="80" placeholder="Ex. Contrats 2026"></label>' +
+      '<label class="field full"><span>Couleur</span><select name="color">' +
+      '<option value="red">Rouge</option><option value="blue">Bleu</option><option value="green">Vert</option><option value="amber">Ambre</option>' +
+      '</select></label>' +
+      '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
+      '<button class="btn btn-primary" type="submit">Créer le dossier</button></div></form>');
+  }
+
+  function folderRenameForm(id) {
+    var F = window.TUSFiles;
+    if (!F) return;
+    F.folder(id).then(function (f) {
+      if (!f) return toast('Dossier introuvable', true);
+      openModal('<h3>Renommer le dossier</h3><form id="folder-rename-form" class="form-grid" data-id="' + esc(id) + '">' +
+        '<label class="field full"><span>Nouveau nom</span><input name="name" required maxlength="80" value="' + esc(f.name) + '"></label>' +
+        '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
+        '<button class="btn btn-primary" type="submit">Enregistrer</button></div></form>');
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  function folderDelete(id) {
+    var F = window.TUSFiles;
+    if (!F) return;
+    F.folder(id).then(function (f) {
+      confirmAction('Supprimer le dossier « ' + (f && f.name || id) + ' » ?',
+        'Les sous-dossiers et tous les fichiers qu’ils contiennent seront aussi supprimés de cet appareil.',
+        function () {
+          F.deleteFolder(id).then(function (res) {
+            if (state.managerFolder === id || (state.managerAll || []).some(function (x) { return x.id === state.managerFolder && x.parent === id; })) {
+              state.managerFolder = 'root';
+            }
+            toast('Dossier supprimé · ' + (res.folders || 0) + ' dossier(s), ' + (res.files || 0) + ' fichier(s)');
+            loadManager();
+          }).catch(function (e) { toast(e.message, true); });
+        });
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  function managerUpload(files) {
+    var F = window.TUSFiles;
+    if (!F) return;
+    var list = Array.prototype.slice.call(files || []);
+    if (!list.length) return;
+    toast('Ajout de ' + list.length + ' fichier(s)…');
+    F.addFiles(state.managerFolder, list).then(function (added) {
+      Store.log('Gestionnaire : ' + added.length + ' fichier(s) ajouté(s) dans ' + state.managerPath);
+      Store.save();
+      toast(added.length + ' fichier(s) enregistré(s) sur cet appareil');
+      loadManager();
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  function fileRenameLocalForm(id) {
+    var F = window.TUSFiles;
+    if (!F) return;
+    F.getFile(id).then(function (f) {
+      if (!f) return;
+      openModal('<h3>Renommer le fichier</h3><form id="file-rename-local-form" class="form-grid" data-id="' + esc(id) + '">' +
+        '<label class="field full"><span>Nouveau nom</span><input name="name" required maxlength="180" value="' + esc(f.name) + '"></label>' +
+        '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
+        '<button class="btn btn-primary" type="submit">Enregistrer</button></div></form>');
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  function fileMoveLocalForm(id) {
+    var F = window.TUSFiles;
+    if (!F) return;
+    F.getFile(id).then(function (f) {
+      if (!f) return;
+      var folders = state.managerAll || [];
+      openModal('<h3>Déplacer le fichier</h3><form id="file-move-local-form" class="form-grid" data-id="' + esc(id) + '">' +
+        '<div class="field full"><div class="subtle small">Fichier : ' + esc(f.name) + '</div></div>' +
+        '<label class="field full"><span>Dossier de destination</span><select name="folder">' +
+        folders.map(function (d) {
+          return '<option value="' + esc(d.id) + '"' + (d.id === f.folder ? ' selected' : '') + '>' +
+            esc(F.pathOf(d.id, folders)) + '</option>';
+        }).join('') + '</select></label>' +
+        '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
+        '<button class="btn btn-primary" type="submit">Déplacer</button></div></form>');
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  function fileAnalyzeLocal(id) {
+    var F = window.TUSFiles;
+    if (!F) return;
+    if (!Cloud || !Cloud.configured()) return toast('Configurez le serveur sécurisé pour analyser ce fichier.', true);
+    F.readAsDataURL(id).then(function (res) {
+      var dataUrl = String(res.content || '');
+      var comma = dataUrl.indexOf(',');
+      if (comma < 0) throw new Error('Fichier illisible');
+      toast('Analyse IA de ' + res.meta.name + '…');
+      return Cloud.analyzeMedia({
+        name: res.meta.name, mime: res.meta.mime, content: dataUrl.slice(comma + 1),
+        company: Store.db.settings.activeCompany || '', project: '', question: ''
+      });
+    }).then(function (report) {
+      state.lastMediaReport = report;
+      showMediaReport(report, true);
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  function bindManager() {
+    var input = $('#manager-input');
+    if (input) input.addEventListener('change', function () { managerUpload(input.files); input.value = ''; });
+    var zone = $('#drop-zone');
+    if (zone) {
+      ['dragenter', 'dragover'].forEach(function (ev) {
+        zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('drag-over'); });
+      });
+      ['dragleave', 'drop'].forEach(function (ev) {
+        zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('drag-over'); });
+      });
+      zone.addEventListener('drop', function (e) {
+        if (e.dataTransfer && e.dataTransfer.files) managerUpload(e.dataTransfer.files);
+      });
+    }
+  }
+
+  function downloadFile(id) {
+    if (!Cloud) return;
+    Cloud.downloadFile(id).then(function (res) {
+      var raw = atob(res.content || '');
+      var bytes = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([bytes], { type: (res.meta && res.meta.mime) || 'application/octet-stream' }));
+      a.download = (res.meta && res.meta.name) || 'fichier';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }).catch(function (e) { toast(e.message, true); });
+  }
+  function runPipeline(form) {
+    if (!Cloud || !Cloud.configured()) return toast('Configurez le serveur sécurisé dans les réglages.', true);
+    var fd = new FormData(form);
+    var payload = {
+      company: fd.get('company') || '', project: fd.get('project') || '',
+      topic: fd.get('topic') || '', research: fd.get('research') || '', publish: !!fd.get('publish')
+    };
+    toast('Les quatre agents travaillent sur le dossier…');
+    Cloud.runPipeline(payload).then(function (res) {
+      state.pipelineResult = res;
+      var published = (res.published || []).map(function (p) { return p.network + (p.ok ? ' ✓' : ' ✕'); }).join(' ');
+      Store.log('Collaboration IA · ' + payload.company + ' / ' + payload.topic.slice(0, 80) +
+        (published ? ' · publication : ' + published : ''));
+      Store.save();
+      toast('Mission terminée : 4 étapes enregistrées dans le dossier');
+      go('collab');
+      loadFiles();
+    }).catch(function (e) { toast(e.message, true); });
+  }
+  function researchModal() {
+    openModal('<h3>🔎 Fenêtre de recherche web</h3>' +
+      '<p class="subtle small">La recherche est exécutée par Perplexity sur le serveur, avec ses sources. Le résultat est transmis à l’agent de conception.</p>' +
+      '<form id="research-form" class="form-grid">' +
+      '<label class="field full"><span>Que rechercher ?</span><input name="query" required placeholder="Ex. Pharmacies à Ouagadougou avec site web"></label>' +
+      '<button class="btn btn-primary" type="submit" style="grid-column:1/-1">Lancer la recherche</button></form>' +
+      '<div id="research-result" class="copy-box" style="margin-top:12px">Aucune recherche effectuée.</div>' +
+      '<div class="modal-actions"><button class="btn btn-ghost" type="button" data-act="research-use">Utiliser ce résultat dans la mission</button>' +
+      '<button class="btn btn-ghost" data-act="modal-close">Fermer</button></div>');
+  }
+  function researchRun(form) {
+    if (!Cloud || !Cloud.configured()) return toast('Configurez le serveur sécurisé.', true);
+    var q = new FormData(form).get('query');
+    var box = $('#research-result');
+    if (box) box.textContent = 'Recherche en cours sur le web…';
+    Cloud.request('/api/ai', {
+      provider: 'perplexity', prompt: 'Recherche web approfondie pour la prospection Touch Unique Studio au Burkina-Faso : ' + q +
+        '\n\nDonne une liste factuelle avec noms, structures, signaux observables, sources URL et pistes d’approche. Signale ce qui n’est pas vérifiable.',
+      system: 'Tu es un assistant de recherche factuelle. Cite tes sources. Ne prétends jamais avoir contacté une structure.',
+      maxTokens: 1800
+    }).then(function (r) {
+      var text = r.text || '';
+      state.lastResearch = text;
+      if (box) box.textContent = text;
+      toast('Recherche terminée · ' + (r.provider || 'perplexity'));
+    }).catch(function (e) {
+      if (box) box.textContent = 'Recherche impossible : ' + e.message;
+      toast(e.message, true);
+    });
+  }
+  function agentsConfig() {
+    if (!Cloud || !Cloud.configured()) return toast('Configurez le serveur sécurisé.', true);
+    Cloud.agents().then(function (res) {
+      var agents = res.agents || [];
+      openModal('<h3>Configuration des agents IA</h3><p class="subtle small">Chaque agent exécute fidèlement sa consigne et reçoit le travail des précédents.</p>' +
+        '<form id="agents-form" class="form-grid">' + agents.map(function (a, i) {
+          return '<div class="agent-edit" style="grid-column:1/-1"><b>' + esc(a.name || a.id) + '</b>' +
+            '<div class="row"><label class="field"><span>Ordre</span><input type="number" name="order-' + i + '" value="' + Number(a.order || i + 1) + '" min="1" max="9"></label>' +
+            '<label class="field"><span>Fournisseur</span><select name="provider-' + i + '">' +
+            ['perplexity', 'gemini', 'anthropic', 'openai', 'auto'].map(function (p) {
+              return '<option value="' + p + '"' + (a.provider === p ? ' selected' : '') + '>' + p + '</option>';
+            }).join('') + '</select></label>' +
+            '<label class="field"><span>Actif</span><select name="enabled-' + i + '"><option value="1"' + (a.enabled !== false ? ' selected' : '') + '>Oui</option><option value="0"' + (a.enabled === false ? ' selected' : '') + '>Non</option></select></label></div>' +
+            '<label class="field full"><span>Consigne de l’agent</span><textarea name="prompt-' + i + '" rows="5">' + esc(a.prompt || '') + '</textarea></label></div>';
+        }).join('') +
+        '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
+        '<button class="btn btn-primary" type="submit">Enregistrer la configuration</button></div></form>');
+      var form = $('#agents-form');
+      if (form) form.dataset.count = String(agents.length);
+    }).catch(function (e) { toast(e.message, true); });
+  }
+  function robotsConfigModal() {
+    if (!Cloud || !Cloud.configured()) return toast('Configurez le serveur sécurisé.', true);
+    Cloud.robotsConfig().then(function (res) {
+      var robots = res.robots || [];
+      openModal('<h3>Configuration des robots quotidiens</h3><p class="subtle small">Chaque robot a son heure, son fournisseur et sa consigne. Le serveur exécute ceux qui sont dus.</p>' +
+        '<form id="robots-config-form" class="form-grid">' + robots.map(function (r, i) {
+          return '<div class="agent-edit" style="grid-column:1/-1"><b>' + esc(r.icon || '✺') + ' ' + esc(r.name) + '</b>' +
+            '<div class="row"><label class="field"><span>Actif</span><select name="enabled-' + i + '"><option value="1"' + (r.enabled !== false ? ' selected' : '') + '>Oui</option><option value="0"' + (r.enabled === false ? ' selected' : '') + '>Non</option></select></label>' +
+            '<label class="field"><span>Heure</span><input type="number" name="hour-' + i + '" value="' + Number(r.hour || 8) + '" min="0" max="23"></label>' +
+            '<label class="field"><span>Fournisseur</span><select name="provider-' + i + '">' +
+            ['auto', 'perplexity', 'gemini', 'anthropic', 'openai'].map(function (p) {
+              return '<option value="' + p + '"' + ((r.provider || 'auto') === p ? ' selected' : '') + '>' + p + '</option>';
+            }).join('') + '</select></label></div>' +
+            '<label class="field full"><span>Sujet quotidien</span><textarea name="topic-' + i + '" rows="3">' + esc(r.topic || '') + '</textarea></label></div>';
+        }).join('') +
+        '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
+        '<button class="btn btn-primary" type="submit">Enregistrer</button></div></form>');
+      var form = $('#robots-config-form');
+      if (form) form.dataset.count = String(robots.length);
+    }).catch(function (e) { toast(e.message, true); });
+  }
+  function accountRemove(id) {
+    confirmAction('Retirer cette connexion ?', 'Le secret sera supprimé du coffre chiffré sur le serveur.', function () {
+      Cloud.credentials(id, '').then(function () { toast('Connexion retirée'); refreshCloud(); }).catch(function (e) { toast(e.message, true); });
+    });
+  }
+  function refreshCloud() {
+    if (!Cloud) return Promise.resolve();
+    if (!Cloud.configured()) {
+      state.cloudInfo = null;
+      refreshConnections();
+      if (page === 'settings') go('settings');
+      return Promise.resolve();
+    }
+    return Promise.all([Cloud.status(), Accounts && Accounts.available() ? Cloud.googleStatus().catch(function () { return null; }) : Promise.resolve(null)])
+      .then(function (arr) {
+        state.cloudInfo = arr[0];
+        refreshConnections();
+        if (page === 'settings' || page === 'collab' || page === 'robots') go(page);
+      });
+  }
+  function googleSync() {
+    if (!Cloud) return;
+    var payload = JSON.parse(Store.exportData());
+    payload.exportedAt = Store.now();
+    payload.origin = 'Touch Unique Studio';
+    toast('Synchronisation avec Google Drive…');
+    Cloud.googleSync(payload).then(function (res) {
+      Store.log('Sauvegarde Drive : ' + (res.name || res.id));
+      Store.save();
+      toast('Sauvegarde envoyée : ' + (res.name || ''));
+    }).catch(function (e) { toast(e.message, true); });
+  }
+  function googleBackups() {
+    if (!Cloud) return;
+    Cloud.googleBackups().then(function (list) {
+      openModal('<h3>Sauvegardes Google Drive</h3>' + (list.length ? '<div class="list">' + list.map(function (f) {
+        return '<div class="list-row"><div class="row-main"><b>' + esc(f.name) + '</b><small>' + esc(f.createdTime || '') + ' · ' + esc(f.id) + '</small></div>' +
+          '<button class="btn btn-ghost btn-sm" data-act="google-restore" data-id="' + esc(f.id) + '">Restaurer</button></div>';
+      }).join('') + '</div>' : '<div class="empty">Aucune sauvegarde pour le moment.</div>') +
+        '<div class="modal-actions"><button class="btn btn-ghost" data-act="modal-close">Fermer</button></div>');
+    }).catch(function (e) { toast(e.message, true); });
+  }
+  function googleRestore(id) {
+    confirmAction('Restaurer cette sauvegarde ?', 'Les données locales actuelles seront remplacées par la version choisie.', function () {
+      Cloud.googleRestore(id).then(function (data) {
+        Store.importData(JSON.stringify(data));
+        toast('Sauvegarde restaurée');
+        go('home');
+      }).catch(function (e) { toast(e.message, true); });
+    });
+  }
+
   /* ---------- Événements ---------- */
   var ACTIONS = {
     'run-autopilot': runAutopilot,
@@ -711,8 +1555,18 @@
     },
     'social-delete': function (id) { Store.remove('social', id); toast('Publication supprimée'); go(page); },
     'shop-recommend': function () { Store.db.shop.suggestions = A.shopActions(Store.products(), Store.db.leads || []); Store.save(); toast('Suggestions actualisées'); go(page); },
-    'shop-new': function () { toast('Ajoutez une offre dans catalogue.json, puis actualisez la page.'); },
+    'shop-new': shopNewForm,
     'shop-edit': shopEdit,
+    'shop-delete': function () {
+      var form = $('#shop-form');
+      var id = form && form.dataset.id;
+      if (!id) return closeModal();
+      confirmAction('Supprimer cette offre ?', 'Elle sera retirée du catalogue sur le site et sur le serveur synchronisé.', function () {
+        if (window.TUSCatalog) { window.TUSCatalog.removeProduct(id); closeModal(); toast('Offre supprimée'); go('shop'); }
+      });
+    },
+    'shop-image-remove': function () {},
+    'shop-image-left': function () {},
     'shop-copy': function (id) {
       var p = Store.products().find(function (x) { return x.id === id; });
       if (!p || !A.offerCopy) return;
@@ -736,6 +1590,85 @@
     },
     'settings-import': function () { $('#import-file').click(); },
     'settings-reset': function () { confirmAction('Réinitialiser les données ?', 'Les données locales actuelles seront remplacées par un espace vide.', function () { Store.reset(false); toast('Données réinitialisées'); go('home'); }); },
+    'company-form': companyForm,
+    'company-activate': function (id) {
+      Store.db.settings.activeCompany = id; Store.save(); toast('Entreprise active : ' + id); go(page);
+    },
+    'company-project': function (id) { companyProject(id); },
+    'company-files': function (id) { state.fileCompany = id; state.fileProject = ''; go('files'); loadFiles(); },
+    'company-collab': function (id) {
+      Store.db.settings.activeCompany = id; Store.save();
+      state.pipelineResult = null; go('collab'); refreshCloud();
+    },
+    'company-delete': function (id) {
+      confirmAction('Supprimer cette entreprise ?', 'Ses projets et dossiers resteront conservés, l’espace sera retiré de la liste.', function () {
+        Store.remove('companies', id); toast('Entreprise retirée'); go(page);
+      });
+    },
+    'files-refresh': function () { loadFiles().then(function (n) { toast(n + ' fichier(s) sur le serveur'); go(page); }); },
+    'files-note': fileNoteForm,
+    'media-open': mediaModal,
+    'media-report': function () { showMediaReport(state.lastMediaReport, false); },
+    'file-analyze': analyzeExistingFile,
+    'media-launch': function () { mediaLaunchMission(state.mediaMissionDraft); },
+    'media-edit-mission': mediaMissionEditor,
+    'media-back': function () { showMediaReport(state.lastMediaReport, false); },
+    'media-copy': function () {
+      if (!state.lastMediaReport) return;
+      copy([state.lastMediaReport.summary, state.lastMediaReport.suggestedMission].filter(Boolean).join('\n\n'));
+    },
+    'folder-new': folderNewForm,
+    'folder-open': function (id) { state.managerFolder = id; loadManager(); },
+    'folder-rename': folderRenameForm,
+    'folder-delete': folderDelete,
+    'manager-refresh': function () { loadManager().then(function () { toast('Gestionnaire actualisé'); }); },
+    'file-rename-local': fileRenameLocalForm,
+    'file-move-local': fileMoveLocalForm,
+    'file-download-local': function (id) {
+      if (window.TUSFiles) window.TUSFiles.downloadFile(id).catch(function (e) { toast(e.message, true); });
+    },
+    'file-delete-local': function (id) {
+      confirmAction('Supprimer ce fichier ?', 'Le fichier sera retiré définitivement de cet appareil.', function () {
+        if (!window.TUSFiles) return;
+        window.TUSFiles.deleteFile(id).then(function () { toast('Fichier supprimé'); loadManager(); })
+          .catch(function (e) { toast(e.message, true); });
+      });
+    },
+    'file-analyze-local': fileAnalyzeLocal,
+    'file-download': downloadFile,
+    'file-delete': function (id) {
+      confirmAction('Supprimer ce fichier ?', 'Le fichier sera retiré du dossier classé sur le serveur.', function () {
+        Cloud.deleteFile(id).then(function () { toast('Fichier supprimé'); loadFiles().then(function () { go(page); }); })
+          .catch(function (e) { toast(e.message, true); });
+      });
+    },
+    'research-open': researchModal,
+    'research-use': function () {
+      var box = $('#pipeline-research');
+      if (box && state.lastResearch) box.value = state.lastResearch;
+      closeModal();
+      toast('Recherche transmise à la mission');
+    },
+    'agents-config': agentsConfig,
+    'robots-config': robotsConfigModal,
+    'cloud-refresh': function () { refreshCloud().then(function () { toast('État des connexions actualisé'); }); },
+    'account-remove': accountRemove,
+    'account-logout': function () {
+      confirmAction('Verrouiller l’application ?', 'Vous devrez saisir votre e-mail et votre mot de passe pour rouvrir l’espace.', function () {
+        if (window.TUSetup) window.TUSetup.lock(boot);
+      });
+    },
+    'google-connect': function () {
+      if (!Cloud) return;
+      toast('Ouverture de Google…');
+      Cloud.googleConnect().then(function (ok) {
+        toast(ok ? 'Google Drive connecté' : 'Connexion Google interrompue', !ok);
+        refreshCloud();
+      }).catch(function (e) { toast(e.message, true); });
+    },
+    'google-sync': googleSync,
+    'google-backups': googleBackups,
+    'google-restore': googleRestore,
     'modal-close': closeModal,
     'notifications': function () {
       openModal('<h3>Notifications</h3><div class="activity">' + (Store.db.logs || []).slice(0, 10).map(function (l) {
@@ -760,7 +1693,27 @@
     });
     $('#notif-btn').addEventListener('click', ACTIONS.notifications);
     modalRoot.addEventListener('click', function (e) {
-      if (e.target === modalRoot || e.target.closest('[data-act="modal-close"]')) closeModal();
+      if (e.target === modalRoot) return closeModal();
+      var target = e.target.closest('[data-act]');
+      if (!target) return;
+      var act = target.dataset.act;
+      if (act === 'modal-close') return closeModal();
+      if (act === 'shop-image-remove' || act === 'shop-image-left') {
+        var idx = Number(target.dataset.index || 0);
+        if (act === 'shop-image-remove') state.shopDraftImages.splice(idx, 1);
+        else if (idx > 0) {
+          var tmp = state.shopDraftImages[idx - 1];
+          state.shopDraftImages[idx - 1] = state.shopDraftImages[idx];
+          state.shopDraftImages[idx] = tmp;
+        }
+        var box = $('#shop-gallery');
+        if (box) box.outerHTML = shopGallery(state.shopDraftImages);
+        return;
+      }
+      var fn = ACTIONS[act];
+      if (!fn) return;
+      if (act === 'research-use' || act === 'google-restore') fn(target.dataset.id);
+      else fn();
     });
     content.addEventListener('click', function (e) {
       var target = e.target.closest('[data-act]');
@@ -772,10 +1725,17 @@
           act === 'project-detail' || act === 'project-tasks' || act === 'project-advance' || act === 'social-copy' ||
           act === 'social-publish' || act === 'social-delete' || act === 'content-reuse' || act === 'shop-edit' ||
           act === 'shop-copy' || act === 'client-delete' || act === 'academy-open' ||
-           act === 'robot-local' || act === 'robot-dry' || act === 'robot-run') fn(target.dataset.id);
+           act === 'robot-local' || act === 'robot-dry' || act === 'robot-run' ||
+           act === 'company-activate' || act === 'company-project' || act === 'company-files' ||
+           act === 'company-collab' || act === 'company-delete' || act === 'file-download' ||
+           act === 'file-delete' || act === 'file-analyze' || act === 'account-remove' ||
+           act === 'google-restore' || act === 'folder-open' || act === 'folder-rename' ||
+           act === 'folder-delete' || act === 'file-rename-local' || act === 'file-move-local' ||
+           act === 'file-download-local' || act === 'file-delete-local' || act === 'file-analyze-local') fn(target.dataset.id);
       else fn();
     });
-    content.addEventListener('submit', function (e) {
+    /* Les formulaires sont dans la vue OU dans une modale : l'écoute est globale. */
+    document.addEventListener('submit', function (e) {
       var form = e.target;
       if (form.id === 'content-form') { e.preventDefault(); contentFromForm(form); }
       else if (form.id === 'social-form') {
@@ -786,7 +1746,8 @@
         e.preventDefault(); var f = new FormData(form);
         var p = Store.add('projects', {
           name: f.get('name'), type: f.get('type'), client: f.get('client'), amount: Number(f.get('amount') || 0),
-          due: f.get('due'), status: 'brief', source: 'Manuel', ai: !!f.get('aiTasks')
+          due: f.get('due'), status: 'brief', source: 'Manuel', ai: !!f.get('aiTasks'),
+          company: form.dataset.company || Store.db.settings.activeCompany || ''
         });
         if (f.get('aiTasks') && A.tasksForProject) A.tasksForProject(p).slice(0, 5).forEach(function (t) { Store.add('tasks', t); });
         closeModal(); toast('Projet créé'); go('projects');
@@ -795,10 +1756,7 @@
         Store.add('clients', { name: cf.get('name'), phone: cf.get('phone'), email: cf.get('email'), city: cf.get('city') });
         closeModal(); toast('Client ajouté'); go('clients');
       } else if (form.id === 'shop-form') {
-        e.preventDefault(); var sf = new FormData(form);
-        var editId = form.dataset.id || '';
-        Store.db.shop.overrides[editId] = { name: sf.get('name'), price: Number(sf.get('price') || 0), unit: sf.get('unit'), short: sf.get('short') };
-        Store.save(); closeModal(); toast('Offre mise à jour'); go('shop');
+        e.preventDefault(); shopSave(form);
       } else if (form.id === 'proxy-form') {
         e.preventDefault();
         var pf = new FormData(form), AI = window.TUSAI;
@@ -816,10 +1774,145 @@
           autopilot: st.has('autopilot'), autoProjects: st.has('autoProjects'), autoSocial: st.has('autoSocial')
         });
         Store.save(); toast('Réglages enregistrés'); renderNav();
+      } else if (form.id === 'company-form') {
+        e.preventDefault(); var cf = new FormData(form);
+        var company = Store.add('companies', {
+          name: cf.get('name'), sector: cf.get('sector'), city: cf.get('city'),
+          contact: cf.get('contact'), phone: cf.get('phone'), email: cf.get('email')
+        });
+        if (!Store.db.settings.activeCompany) Store.db.settings.activeCompany = company.name;
+        Store.save(); closeModal(); toast('Espace entreprise créé'); go('companies');
+      } else if (form.id === 'file-upload-form') {
+        e.preventDefault();
+        var ff = new FormData(form), file = ff.get('file');
+        if (!file || !file.size) return toast('Choisissez un fichier', true);
+        if (!Cloud || !Cloud.configured()) return toast('Configurez le serveur sécurisé pour déposer des fichiers.', true);
+        var reader = new FileReader();
+        reader.onload = function () {
+          var dataUrl = String(reader.result || '');
+          Cloud.uploadFile({
+            company: ff.get('company') || state.fileCompany || Store.db.settings.activeCompany || '',
+            project: ff.get('project') || state.fileProject || '',
+            folder: ff.get('folder') || 'Documents',
+            name: file.name, mime: file.type || 'application/octet-stream',
+            content: dataUrl.slice(dataUrl.indexOf(',') + 1)
+          }).then(function () {
+            toast('Fichier classé'); loadFiles().then(function () { go(page); });
+          }).catch(function (err) { toast(err.message, true); });
+        };
+        reader.readAsDataURL(file);
+      } else if (form.id === 'note-form') {
+        e.preventDefault();
+        if (!Cloud || !Cloud.configured()) return toast('Serveur sécurisé non configuré.', true);
+        var nf = new FormData(form);
+        Cloud.saveTextFile(state.fileCompany || Store.db.settings.activeCompany || '', state.fileProject || '',
+          state.fileFolder || 'Documents', nf.get('name') + '.md', nf.get('text'))
+          .then(function () { closeModal(); toast('Note classée'); loadFiles().then(function () { go(page); }); })
+          .catch(function (err) { toast(err.message, true); });
+      } else if (form.id === 'folder-form') {
+        e.preventDefault();
+        var fo = new FormData(form);
+        if (!window.TUSFiles) return;
+        window.TUSFiles.createFolder(fo.get('name'), state.managerFolder, fo.get('color'))
+          .then(function () { closeModal(); toast('Dossier créé'); loadManager(); })
+          .catch(function (err) { toast(err.message, true); });
+      } else if (form.id === 'folder-rename-form') {
+        e.preventDefault();
+        var rn = new FormData(form);
+        window.TUSFiles.renameFolder(form.dataset.id, rn.get('name'))
+          .then(function () { closeModal(); toast('Dossier renommé'); loadManager(); })
+          .catch(function (err) { toast(err.message, true); });
+      } else if (form.id === 'file-rename-local-form') {
+        e.preventDefault();
+        var fr = new FormData(form);
+        window.TUSFiles.renameFile(form.dataset.id, fr.get('name'))
+          .then(function () { closeModal(); toast('Fichier renommé'); loadManager(); })
+          .catch(function (err) { toast(err.message, true); });
+      } else if (form.id === 'file-move-local-form') {
+        e.preventDefault();
+        var fm = new FormData(form);
+        window.TUSFiles.moveFile(form.dataset.id, fm.get('folder'))
+          .then(function () { closeModal(); toast('Fichier déplacé'); loadManager(); })
+          .catch(function (err) { toast(err.message, true); });
+      } else if (form.id === 'media-form') {
+        e.preventDefault(); mediaAnalyze(form);
+      } else if (form.id === 'media-mission-form') {
+        e.preventDefault();
+        var mf = new FormData(form);
+        mediaLaunchMission({
+          company: mf.get('company') || '', project: mf.get('project') || '',
+          topic: mf.get('topic') || '', research: mf.get('research') || '', publish: !!mf.get('publish')
+        });
+      } else if (form.id === 'pipeline-form') {
+        e.preventDefault(); runPipeline(form);
+      } else if (form.id === 'research-form') {
+        e.preventDefault(); researchRun(form);
+      } else if (form.id === 'agents-form') {
+        e.preventDefault();
+        var count = Number(form.dataset.count || 0), agents = [], afd = new FormData(form);
+        for (var i = 0; i < count; i++) {
+          agents.push({
+            id: ['prospection', 'conception', 'contact', 'rapports'][i] || ('agent-' + i),
+            order: Number(afd.get('order-' + i) || i + 1),
+            provider: afd.get('provider-' + i) || 'auto',
+            enabled: afd.get('enabled-' + i) === '1',
+            prompt: afd.get('prompt-' + i) || ''
+          });
+        }
+        Cloud.saveAgents(agents).then(function () { closeModal(); toast('Agents configurés'); refreshCloud(); })
+          .catch(function (err) { toast(err.message, true); });
+      } else if (form.id === 'robots-config-form') {
+        e.preventDefault();
+        var rc = new FormData(form), nrobot = Number(form.dataset.count || 4), list = [];
+        for (var j = 0; j < nrobot; j++) {
+          list.push({
+            id: ['veille', 'publication', 'conception', 'prospection'][j] || ('robot-' + j),
+            enabled: rc.get('enabled-' + j) === '1',
+            hour: Number(rc.get('hour-' + j) || 8),
+            provider: rc.get('provider-' + j) || 'auto',
+            topic: rc.get('topic-' + j) || ''
+          });
+        }
+        Cloud.saveRobots(list).then(function () { closeModal(); toast('Robots configurés'); refreshCloud(); })
+          .catch(function (err) { toast(err.message, true); });
+      } else if (form.id === 'google-form') {
+        e.preventDefault();
+        var gf = new FormData(form), done = 0, total = 0, errs = [];
+        Cloud.GOOGLE_FIELDS.forEach(function (f) {
+          var v = String(gf.get(f.id) || '').trim();
+          if (!v) return;
+          total++;
+          Cloud.credentials(f.id, v).catch(function (err) { errs.push(err.message); })
+            .then(function () { if (++done === total) { toast(errs.length ? errs[0] : 'Configuration Google enregistrée', !!errs.length); refreshCloud(); } });
+        });
+        if (!total) toast('Saisissez au moins le Client ID et le Secret', true);
+      } else if (form.matches && form.matches('[data-account]')) {
+        e.preventDefault();
+        var value = new FormData(form).get('value');
+        if (!value) return toast('Saisissez une clé', true);
+        Cloud.saveProvider(form.dataset.account, value).then(function () {
+          form.reset(); toast('Compte connecté'); refreshCloud();
+        }).catch(function (err) { toast(err.message, true); });
+      } else if (form.matches && form.matches('[data-network]')) {
+        e.preventDefault();
+        var fdnet = new FormData(form), tasks = [];
+        Cloud.NETWORKS.find(function (n) { return n.id === form.dataset.network; }).fields.forEach(function (f) {
+          var v = String(fdnet.get(f.id) || '').trim();
+          if (v) tasks.push(Cloud.saveNetworkField(f.id, v));
+        });
+        Promise.all(tasks).then(function () {
+          form.reset(); toast(tasks.length ? 'Réseau enregistré' : 'Aucun champ saisi', !tasks.length); refreshCloud();
+        }).catch(function (err) { toast(err.message, true); });
       }
     });
     content.addEventListener('change', function (e) {
       if (e.target.id === 'social-filter') { state.socialFilter = e.target.value; go('social'); }
+      else if (e.target.id === 'file-company') { state.fileCompany = e.target.value; state.fileProject = ''; state.fileFolder = ''; go('files'); loadFiles(); }
+      else if (e.target.id === 'file-project') { state.fileProject = e.target.value; go('files'); loadFiles(); }
+      else if (e.target.id === 'file-folder') { state.fileFolder = e.target.value; go('files'); loadFiles(); }
+      else if (e.target.id === 'pipeline-company') {
+        Store.db.settings.activeCompany = e.target.value; Store.save(); go('collab'); refreshCloud();
+      }
     });
     content.addEventListener('input', function (e) {
       if (e.target.id === 'social-search') {
@@ -859,11 +1952,15 @@
     if (page === 'home' || page === 'leads') go(page);
   }
 
-  function init() {
-    if (Store.db.settings.theme) document.documentElement.dataset.theme = Store.db.settings.theme;
-    bindGlobal();
-    initAI();
-    refreshConnections();
+  function boot() {
+    Store.migrateShop();
+    if (window.TUSCatalog && Cloud && Cloud.configured()) {
+      window.TUSCatalog.syncFromServer().catch(function () {});
+    }
+    if (window.TUSCatalog) {
+      window.TUSCatalog.subscribe(function () { if (page === 'shop') go('shop'); });
+    }
+    refreshCloud();
     syncAndNotify();
     go('home');
     if (window.TUSRobots) {
@@ -872,11 +1969,31 @@
       });
       refreshRobotStatus();
     }
+    if (Cloud && Cloud.configured()) {
+      Cloud.agents().then(function (res) { state.agentInfo = res; if (page === 'collab') go('collab'); }).catch(function () {});
+      loadFiles();
+    }
     window.addEventListener('storage', function (e) {
       if (e.key === Store.KEY || e.key === 'tus_site_leads_v1') syncAndNotify();
     });
     window.addEventListener('focus', syncAndNotify);
     setInterval(syncAndNotify, 8000);
+  }
+
+  function init() {
+    if (Store.db.settings.theme) document.documentElement.dataset.theme = Store.db.settings.theme;
+    bindGlobal();
+    initAI();
+    var Setup = window.TUSetup;
+    if (!Store.setupDone()) {
+      if (Setup) Setup.show('setup', boot); else boot();
+      return;
+    }
+    if (Accounts && Accounts.available() && !Accounts.current()) {
+      if (Setup) Setup.show('lock', boot); else boot();
+      return;
+    }
+    boot();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

@@ -8,7 +8,7 @@
   <title>Touch Unique — Application de gestion</title>
   <link rel="icon" href="ic_launcher_192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=11">
+  <link rel="stylesheet" href="styles.css?v=13">
 </head>
 <body>
   <div class="app-bg" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -59,16 +59,59 @@
     </form>
   </aside>
 
+  <!-- Configuration à la première ouverture -->
+  <div class="gate" id="setup-screen" hidden>
+    <div class="gate-card">
+      <div class="gate-brand"><img src="ic_launcher_192.png" alt=""><div><b>TOUCH UNIQUE</b><small>STUDIO · GESTION</small></div></div>
+      <span class="chip red">Première configuration</span>
+      <h2>Sécurisez votre espace</h2>
+      <p class="subtle">Créez votre compte local. Votre mot de passe est haché avec PBKDF2-SHA256 et un sel aléatoire : il n’est jamais stocké en clair.</p>
+      <div class="gate-error" hidden></div>
+      <form id="setup-form" class="form-grid">
+        <label class="field full"><span>Votre nom</span><input name="name" required autocomplete="name" placeholder="Prénom Nom"></label>
+        <label class="field full"><span>E-mail</span><input name="email" type="email" required autocomplete="email" placeholder="vous@exemple.com"></label>
+        <label class="field"><span>Mot de passe (8 caractères minimum)</span><input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+        <label class="field"><span>Confirmer le mot de passe</span><input name="confirm" type="password" required minlength="8" autocomplete="new-password"></label>
+        <div class="field full"><label class="switch"><input type="checkbox" name="show"> Afficher les mots de passe</label></div>
+        <div class="field full"><div class="gate-divider">Serveur sécurisé — facultatif, vous pourrez le configurer plus tard dans les réglages</div></div>
+        <label class="field full"><span>URL du serveur sécurisé</span><input name="url" type="url" placeholder="https://mon-serveur.onrender.com"></label>
+        <label class="field full"><span>Clé d’accès au serveur (si demandée)</span><input name="key" type="password" autocomplete="off"></label>
+        <button class="btn btn-primary btn-block" type="submit" style="grid-column:1/-1">Créer mon espace sécurisé</button>
+      </form>
+      <p class="subtle small">Le moteur local reste disponible immédiatement. Les clés des IA se saisissent plus tard dans les réglages.</p>
+    </div>
+  </div>
+
+  <!-- Verrouillage -->
+  <div class="gate" id="lock-screen" hidden>
+    <div class="gate-card">
+      <div class="gate-brand"><img src="ic_launcher_192.png" alt=""><div><b>TOUCH UNIQUE</b><small>STUDIO · GESTION</small></div></div>
+      <h2>Espace verrouillé</h2>
+      <p class="subtle">Connectez-vous pour reprendre vos projets, dossiers et robots.</p>
+      <div class="gate-error" hidden></div>
+      <form id="lock-form" class="form-grid">
+        <label class="field full"><span>E-mail</span><input name="email" type="email" required autocomplete="username"></label>
+        <label class="field full"><span>Mot de passe</span><input name="password" type="password" required autocomplete="current-password"></label>
+        <button class="btn btn-primary btn-block" type="submit" style="grid-column:1/-1">Ouvrir mon espace</button>
+      </form>
+      <button class="link-btn" id="lock-help" type="button">Mot de passe oublié ? Contacter le support</button>
+    </div>
+  </div>
+
   <div class="modal-root" id="modal-root" hidden></div>
   <div class="toast-root" id="toast-root" role="status" aria-live="polite"></div>
 
-  <script src="sync.js?v=11"></script>
-  <script src="data.js?v=11"></script>
-  <script src="automation.js?v=11"></script>
-  <script src="tus-ai.js?v=11"></script>
-  <script src="tus-accounts.js?v=11"></script>
-  <script src="robots.js?v=11"></script>
-  <script src="store.js?v=11"></script>
-  <script src="app.js?v=11"></script>
+  <script src="sync.js?v=13"></script>
+  <script src="data.js?v=13"></script>
+  <script src="automation.js?v=13"></script>
+  <script src="tus-ai.js?v=13"></script>
+  <script src="tus-accounts.js?v=13"></script>
+  <script src="tus-cloud.js?v=13"></script>
+  <script src="tus-catalog.js?v=13"></script>
+  <script src="robots.js?v=13"></script>
+  <script src="filemanager.js?v=13"></script>
+  <script src="setup.js?v=13"></script>
+  <script src="store.js?v=13"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>
