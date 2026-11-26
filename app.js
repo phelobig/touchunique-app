@@ -19,7 +19,8 @@
     collabFolders: [], collabEvidence: null,
     managerFolder: 'root', managerFolders: [], managerFiles: [], managerAll: [], managerPath: 'Mes fichiers',
     msgThread: '', msgRec: null, prospectFilter: 'tous', prospectBucket: 'online', prospectDomain: 'tous',
-    update: null, updateDismissed: ''
+    update: null, updateDismissed: '', visitDetails: null,
+    lastResearch: '', lastResearchSources: [], lastResearchQuery: ''
   };
 
   function nativeBridge() {
@@ -184,6 +185,7 @@
     { id: 'manager', label: 'Gestionnaire de fichiers', icon: '📂', kicker: 'Dossiers, fichiers et analyse', title: 'Gestionnaire de fichiers' },
     { id: 'collab', label: 'Collaboration IA', icon: '⇄', kicker: 'Quatre agents, un dossier', title: 'Collaboration IA' },
     { id: 'leads', label: 'Commandes du site', icon: '🌐', kicker: 'Pipeline commercial', title: 'Commandes du site' },
+    { id: 'visitors', label: 'Visiteurs', icon: '👥', kicker: 'Site public · détails administratifs', title: 'Visiteurs du site' },
     { id: 'prospect', label: 'Prospect', icon: '🔎', kicker: 'Pistes classées par le robot', title: 'Prospect' },
     { id: 'content', label: 'Contenus IA', icon: '✦', kicker: 'Création assistée', title: 'Contenus IA' },
     { id: 'social', label: 'File sociale', icon: '▶', kicker: 'Publication', title: 'File sociale' },
@@ -254,6 +256,7 @@
   function waLink(text) { return BRAND.whatsapp + '?text=' + encodeURIComponent(text || 'Bonjour Touch Unique.'); }
   var CONSOLE_HOSTS = /^(console\.cloud\.google\.com|developers\.facebook\.com|www\.linkedin\.com|developer\.x\.com)$/i;
   var PROVIDER_HOSTS = /^(platform\.openai\.com|www\.perplexity\.ai|aistudio\.google\.com|console\.anthropic\.com)$/i;
+  var SEARCH_HOSTS = /^(www\.google\.com|fr\.wikipedia\.org|www\.bing\.com|duckduckgo\.com)$/i;
   /* Liens externes : TUSSecure.safeHref + HTTPS + hôtes attendus uniquement. */
   function safeExternal(value, hosts) {
     try {
@@ -356,6 +359,7 @@
     if (page === 'settings') { refreshNativePermissions(); paintOAuth(); paintUpdates(); }
     if (page === 'manager') { bindManager(); loadManager(); }
     if (page === 'social') refreshInbox(true);
+    if (page === 'visitors') refreshVisitDetails();
     if (page === 'social' || page === 'prospect') startNativePollingSilent();
   }
 
@@ -662,6 +666,43 @@
           '<button class="btn btn-ghost btn-sm" data-act="lead-done" data-id="' + esc(l.id) + '">' + (l.seen ? 'Rouvrir' : 'Traiter') + '</button>' +
           '<button class="btn btn-ghost btn-sm" data-act="lead-delete" data-id="' + esc(l.id) + '">Supprimer</button></div></article>';
       }).join('') + '</div>' : '<div class="empty">Aucune commande reçue. Le site public enverra ses demandes ici automatiquement.</div>');
+  };
+
+  views.visitors = function () {
+    var d = state.visitDetails || null;
+    var s = (d && d.summary) || {};
+    var items = (d && d.items) || [];
+    return '<div class="section-title"><h2>Activité du site public</h2>' +
+      '<div class="row"><button class="btn btn-ghost btn-sm" data-act="visitors-refresh">↻ Actualiser les détails</button></div></div>' +
+      '<div class="card"><div class="row" style="flex-wrap:wrap">' +
+      '<span class="chip red">' + Number(s.total || 0).toLocaleString('fr-FR') + ' visiteurs uniques</span>' +
+      '<span class="chip green">' + Number(s.today || 0).toLocaleString('fr-FR') + ' aujourd’hui</span>' +
+      '<span class="chip blue">' + Number(s.online || 0) + ' en ligne</span>' +
+      '<span class="chip gray">' + Number(s.views || 0).toLocaleString('fr-FR') + ' pages vues</span></div>' +
+      '<p class="subtle small" style="margin:12px 0 0">Ces détails sont protégés par la clé du serveur : ils ne sont jamais exposés sur le site public. ' +
+      'Les contacts n’apparaissent que si le visiteur les a réellement transmis.</p></div>' +
+      '<div id="visit-details" class="stack" style="margin-top:14px">' +
+      (d && d.ok === false ? '<div class="empty">' + esc(d.error || 'Accès refusé aux détails.') + '</div>' :
+        items.length ? items.map(function (v) {
+          var dev = v.device || {};
+          var c = v.contact || {};
+          return '<article class="card"><div class="card-head"><div><h2>' +
+            esc([dev.brand, dev.model].filter(Boolean).join(' ') || dev.platform || 'Appareil inconnu') + '</h2>' +
+            '<div class="subtle">' + esc(v.at || '') + ' · ' + esc(dev.platform || '') + ' · ' + esc(v.page || '/') + '</div></div>' +
+            '<span class="chip gray">' + esc(v.sid || '') + '</span></div>' +
+            '<div class="row" style="flex-wrap:wrap;margin-top:10px">' +
+            '<span class="chip gray">IP ' + esc(v.ip || '—') + '</span>' +
+            '<span class="chip gray">' + esc(v.lang || '—') + '</span>' +
+            '<span class="chip gray">' + esc(v.tz || '—') + '</span>' +
+            '<span class="chip gray">' + esc(v.screen || '—') + '</span></div>' +
+            (c.name || c.email || c.phone ? '<div class="brief-box" style="margin-top:10px"><b>Contact transmis</b>' +
+              '<div class="subtle">' + esc([c.name, c.phone, c.email].filter(Boolean).join(' · ')) + '</div></div>' : '') +
+            (v.ref ? '<div class="subtle small" style="margin-top:8px">Référent : ' + esc(v.ref) + '</div>' : '') +
+            (v.userAgent ? '<details style="margin-top:8px"><summary class="subtle small">Agent utilisateur</summary>' +
+              '<pre class="copy-box">' + esc(v.userAgent) + '</pre></details>' : '') +
+            '</article>';
+        }).join('') : '<div class="empty">Aucun détail disponible pour le moment. Les visites du site apparaîtront ici.</div>') +
+      '</div>';
   };
 
   views.prospect = function () {
@@ -1235,7 +1276,9 @@
     var badge = $('#ai-mode'), box = $('#proxy-status');
     function paint(s) {
       var live = s.ok && Object.keys(s.ai || {}).some(function (k) { return s.ai[k]; });
-      if (badge) badge.textContent = live ? 'IA temps réel connectée' : 'Moteur local inclus';
+      if (badge) badge.textContent = (live && s.ai && s.ai.web)
+        ? 'IA temps réel · Internet illimité'
+        : live ? 'IA temps réel connectée' : 'Moteur local inclus';
       if (!box) return;
       if (!s.configured) { box.innerHTML = 'Serveur non configuré — moteur local actif.'; return; }
       if (!s.ok) { box.innerHTML = 'Serveur injoignable : ' + esc(s.error || 'erreur'); return; }
@@ -1284,7 +1327,9 @@
       answer: 'Je peux vous aider sur les projets, les commandes, les contenus, les robots et la boutique.', sources: ['Aide']
     });
     return AI.ask(raw).then(function (r) {
-      return { answer: r.text, sources: [r.live ? 'IA temps réel' : 'Moteur local'], trials: r.trials };
+      var tags = (r.sources || []).map(function (s) { return s.title || s.url || s; }).filter(Boolean);
+      if (!tags.length) tags = [r.live ? 'IA temps réel' : 'Moteur local'];
+      return { answer: r.text, sources: tags, trials: r.trials, unlimited: !!r.unlimited };
     });
   }
   function pushMsg(cls, text) {
@@ -1312,10 +1357,10 @@
       var btn = $('button', e.target);
       if (btn) btn.disabled = true;
       assistantAsk(text).then(function (res) {
-        var footer = '\n\n— Sources : ' + res.sources.join(', ');
-        /* Indicateur informatif seulement : le quota est appliqué par le serveur. */
-        if (res.trials && res.trials.limit) {
-          footer += ' · Indicateur local : ' + (res.trials.remaining || 0) + '/' + res.trials.limit + ' essais aujourd’hui (limite effective côté serveur)';
+        var footer = (res.sources && res.sources.length) ? '\n\n— Sources : ' + res.sources.join(', ') : '';
+        /* L’accès Internet illimité n’utilise aucun essai local. */
+        if (!res.unlimited && res.trials && res.trials.limit) {
+          footer += (footer ? ' · ' : '\n\n') + 'Indicateur local : ' + (res.trials.remaining || 0) + '/' + res.trials.limit + ' essais aujourd’hui';
         }
         pushMsg('bot', res.answer + footer);
         refreshConnections();
@@ -1850,32 +1895,46 @@
     }).catch(function (e) { toast(e.message, true); });
   }
   function researchModal() {
-    openModal('<h3>🔎 Fenêtre de recherche web</h3>' +
-      '<p class="subtle small">La recherche est exécutée par Perplexity sur le serveur, avec ses sources. Le résultat est transmis à l’agent de conception.</p>' +
+    openModal('<h3>🔎 Fenêtre de recherche Internet</h3>' +
+      '<p class="subtle small">Recherche exécutée côté serveur avec un accès Internet public sans clé. ' +
+      'Le contexte trouvé est aussi injecté automatiquement dans les réponses des IA. ' +
+      'Le résultat peut être transmis à l’agent de conception.</p>' +
       '<form id="research-form" class="form-grid">' +
       '<label class="field full"><span>Que rechercher ?</span><input name="query" required placeholder="Ex. Pharmacies à Ouagadougou avec site web"></label>' +
       '<button class="btn btn-primary" type="submit" style="grid-column:1/-1">Lancer la recherche</button></form>' +
       '<div id="research-result" class="copy-box" style="margin-top:12px">Aucune recherche effectuée.</div>' +
-      '<div class="modal-actions"><button class="btn btn-ghost" type="button" data-act="research-use">Utiliser ce résultat dans la mission</button>' +
+      '<div class="modal-actions"><button class="btn btn-ghost" type="button" data-act="research-external">🌐 Ouvrir dans le navigateur</button>' +
+      '<button class="btn btn-ghost" type="button" data-act="research-use">Utiliser ce résultat dans la mission</button>' +
       '<button class="btn btn-ghost" data-act="modal-close">Fermer</button></div>');
   }
   function researchRun(form) {
     if (!Cloud || !Cloud.configured()) return toast('Configurez le serveur sécurisé.', true);
-    var q = new FormData(form).get('query');
+    var q = String(new FormData(form).get('query') || '').trim();
+    if (!q) return toast('Saisissez un sujet de recherche.', true);
+    state.lastResearchQuery = q;
     var box = $('#research-result');
-    if (box) box.textContent = 'Recherche en cours sur le web…';
+    if (box) box.textContent = 'Recherche en cours sur Internet…';
     Cloud.request('/api/ai', {
-      provider: 'perplexity', prompt: 'Recherche web approfondie pour la prospection Touch Unique Studio au Burkina-Faso : ' + q +
+      provider: 'web', prompt: 'Recherche web approfondie pour Touch Unique Studio au Burkina-Faso : ' + q +
         '\n\nDonne une liste factuelle avec noms, structures, signaux observables, sources URL et pistes d’approche. Signale ce qui n’est pas vérifiable.',
-      system: 'Tu es un assistant de recherche factuelle. Cite tes sources. Ne prétends jamais avoir contacté une structure.',
+      system: 'Tu es un assistant de recherche factuelle avec accès Internet. Cite tes sources. Ne prétends jamais avoir contacté une structure.',
       maxTokens: 1800
     }).then(function (r) {
       var text = r.text || '';
       state.lastResearch = text;
-      if (box) box.textContent = text;
-      toast('Recherche terminée · ' + (r.provider || 'perplexity'));
+      state.lastResearchSources = r.sources || [];
+      var html = nl(text);
+      if (state.lastResearchSources.length) {
+        html += '<div style="margin-top:10px"><b>Sources ouvertes</b><div class="row" style="flex-wrap:wrap;margin-top:6px">' +
+          state.lastResearchSources.map(function (s) {
+            var href = safeExternal(s.url, SEARCH_HOSTS);
+            return href ? '<a class="link-btn" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(s.title) + ' ↗</a>' : '';
+          }).join('') + '</div></div>';
+      }
+      if (box) box.innerHTML = html;
+      toast('Recherche terminée · ' + (r.provider || 'web'));
     }).catch(function (e) {
-      if (box) box.textContent = 'Recherche impossible : ' + e.message;
+      if (box) box.textContent = 'Recherche impossible : ' + e.message + '. Utilisez « Ouvrir dans le navigateur ».';
       toast(e.message, true);
     });
   }
@@ -2492,6 +2551,11 @@
       });
     },
     'research-open': researchModal,
+    'research-external': function () {
+      var q = state.lastResearchQuery || 'Touch Unique Studio';
+      openLink('https://www.google.com/search?q=' + encodeURIComponent(q));
+    },
+    'visitors-refresh': refreshVisitDetails,
     'research-use': function () {
       var box = $('#pipeline-research');
       if (box && state.lastResearch) box.value = state.lastResearch;
@@ -3017,6 +3081,27 @@
         var admin = $('#admin-panel');
         if (admin) { admin.classList.remove('open'); admin.setAttribute('inert', ''); }
       }
+    });
+  }
+
+  function paintVisitDetails() {
+    if (page === 'visitors') content.innerHTML = views.visitors();
+  }
+  function refreshVisitDetails() {
+    if (!window.TUSVisits || !window.TUSVisits.details) {
+      state.visitDetails = { ok: false, error: 'Détails indisponibles dans cette version.' };
+      paintVisitDetails();
+      return Promise.resolve(false);
+    }
+    return window.TUSVisits.details(100).then(function (d) {
+      state.visitDetails = d;
+      paintVisitDetails();
+      return true;
+    }).catch(function (e) {
+      state.visitDetails = { ok: false, error: e && e.message ? e.message : 'Accès refusé.' };
+      paintVisitDetails();
+      toast(state.visitDetails.error, true);
+      return false;
     });
   }
 
