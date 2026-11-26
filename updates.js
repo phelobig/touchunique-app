@@ -145,7 +145,7 @@
     if (platform() === 'windows') {
       return root.electronAPI.updates.configure({ url: url, auto: auto }).then(probe);
     }
-    return status();
+    return probe();
   }
 
   function rollback() {
