@@ -140,7 +140,9 @@
     var body = options.body == null ? '' : (typeof options.body === 'string' ? options.body : String(options.body));
     return Promise.resolve()
       .then(function () {
-        return root.TUSNative.api(String(url), options.method || (body ? 'POST' : 'GET'), headers, body);
+        /* Le pont Android attend une chaîne JSON ; Windows sait aussi la lire. */
+        return root.TUSNative.api(String(url), options.method || (body ? 'POST' : 'GET'),
+          JSON.stringify(headers), body);
       })
       .then(normalizeNative);
   }

@@ -265,6 +265,15 @@
       return esc(href);
     } catch (e) { return ''; }
   }
+  /* Android/Electron ouvrent les liens dans le navigateur système ; la WebView
+     et Electron ne gèrent pas window.open pour les connexions OAuth. */
+  function openLink(url) {
+    var href = String(url || '');
+    var N = window.TUSNative;
+    if (N && typeof N.openExternal === 'function') return Promise.resolve(N.openExternal(href));
+    var w = window.open(href, '_blank', 'noopener,noreferrer');
+    return Promise.resolve(!!w);
+  }
   /* Pièce jointe : même hôte que le serveur autorisé, jamais un tiers. */
   function safeAttachment(value) {
     try {
@@ -975,8 +984,12 @@
       '<div class="card"><div class="card-head"><h2>Réseaux sociaux</h2><span class="chip amber">Publication réelle uniquement</span></div>' +
       (Cloud ? Cloud.NETWORKS.map(function (n) {
         var on = !!(state.cloudInfo && state.cloudInfo.social && state.cloudInfo.social[n.id]);
+        var meta = (Cloud.OAUTH_PROVIDERS || []).find(function (x) { return x.id === n.id; }) || {};
+        var consoleUrl = safeExternal(meta.console, CONSOLE_HOSTS);
         return '<form class="account-row" data-network="' + esc(n.id) + '"><div><b>' + esc(n.name) + '</b>' +
-          '<div class="subtle small">' + (on ? 'Connecté' : 'Non connecté — publication désactivée') + '</div></div>' +
+          '<div class="subtle small">' + (on ? 'Connecté' : 'Non connecté — publication désactivée') + '</div>' +
+          (consoleUrl ? '<div class="row" style="margin-top:6px"><a class="link-btn" href="' + consoleUrl +
+            '" target="_blank" rel="noopener noreferrer">Configurer ' + esc(n.name) + ' ↗</a></div>' : '') + '</div>' +
           '<div class="row">' + n.fields.map(function (f) {
             return '<input type="password" name="' + esc(f.id) + '" placeholder="' + esc(f.label) + '" autocomplete="off" aria-label="' + esc(f.label) + '">';
           }).join('') + '<button class="btn btn-ghost btn-sm" type="submit">Enregistrer</button></div></form>';
@@ -2543,6 +2556,14 @@
     },
     'google-connect': function () {
       if (!Cloud) return;
+      var google = (Cloud.OAUTH_PROVIDERS || []).find(function (p) { return p.id === 'google'; }) || {};
+      var consoleUrl = safeExternal(google.console, CONSOLE_HOSTS);
+      var linked = !!(state.cloudInfo && state.cloudInfo.google && state.cloudInfo.google.connected);
+      if (!linked && consoleUrl) {
+        openLink(consoleUrl);
+        toast('Créez d’abord l’application Google sur la console, puis configurez ses identifiants sur le serveur.', true);
+        return;
+      }
       toast('Ouverture de Google…');
       Cloud.googleConnect().then(function (ok) {
         toast(ok ? 'Google Drive connecté' : 'Connexion Google interrompue', !ok);
@@ -2552,6 +2573,14 @@
     'oauth-connect': function (id) {
       if (!Cloud) return;
       if (id === 'google') return ACTIONS['google-connect']();
+      var provider = oauthStatuses().find(function (p) { return p.id === id; }) || {};
+      var meta = (Cloud.OAUTH_PROVIDERS || []).find(function (p) { return p.id === id; }) || provider;
+      var consoleUrl = safeExternal(meta.console, CONSOLE_HOSTS);
+      if (!provider.configured && !provider.connected && consoleUrl) {
+        openLink(consoleUrl);
+        toast('Configurez ' + (meta.name || id) + ' sur la console, puis enregistrez ses identifiants sur le serveur.', true);
+        return;
+      }
       toast('Ouverture de ' + id + '…');
       Cloud.oauthConnect(id).then(function () {
         toast('Connexion réussie'); refreshCloud();

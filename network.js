@@ -4,8 +4,8 @@
   'use strict';
 
   var ENABLE_KEY = 'tus_network_enabled_v1';
-  var PROBE = 'https://phelobig.github.io/touchunique-site/?probe=';
-  var PROBE_FALLBACK = 'https://touchunique-serveur.onrender.com/api/visits';
+  var PROBE = 'https://touchunique-serveur.onrender.com/api/visits';
+  var PROBE_FALLBACK = 'https://phelobig.github.io/?probe=';
   var BASE_INTERVAL = 20000;
   var MAX_INTERVAL = 300000;
   var MAX_BYTES = 50 * 1024 * 1024;
@@ -15,6 +15,7 @@
   var globalsBound = false;
   var enabled = true;
   var online = false;
+  var serverDown = false;
   var speed = 0;
   var bytes = 0;
   var lastCheck = 0;
@@ -34,6 +35,7 @@
     return {
       enabled: enabled,
       online: enabled && online,
+      serverDown: enabled && serverDown,
       speedMbps: Math.round(speed * 100) / 100,
       bytes: bytes,
       lastCheck: lastCheck
@@ -42,6 +44,7 @@
   function fmt(s) {
     if (!s.enabled) return 'Connexion désactivée';
     if (!s.online) return 'Hors ligne';
+    if (s.serverDown) return 'Connecté · serveur indisponible';
     if (!s.speedMbps) return 'Connexion active · ' + s.bytes + ' octets';
     return s.speedMbps.toFixed(2) + ' Mb/s · ' + (s.bytes / (1024 * 1024)).toFixed(1) +
       ' Mo (' + s.bytes + ' octets)';
@@ -59,15 +62,27 @@
     var mine = epoch;
     var started = (root.performance && performance.now) ? performance.now() : Date.now();
     var connection = root.navigator && (navigator.connection || navigator.mozConnection);
+    function nativeOnline() {
+      try {
+        var n = root.TUSNative;
+        if (n && typeof n.online === 'function') return !!n.online();
+      } catch (e) { /* ignore */ }
+      return null;
+    }
     function done(ok, measured, size) {
       if (ok) {
         failures = 0;
         online = true;
+        serverDown = false;
         speed = Math.min(MAX_SPEED, measured > 0 ? measured : (connection && connection.downlink ? Number(connection.downlink) || 0 : 0));
         bytes = Math.min(MAX_BYTES, bytes + Math.max(0, size || 0));
       } else {
         failures = Math.min(failures + 1, 6);
-        online = false;
+        /* Le téléphone peut être connecté alors que le serveur est en pause
+           (Render gratuit) : on ne l'affiche plus comme « Hors ligne ». */
+        var device = nativeOnline();
+        serverDown = device === true;
+        online = serverDown;
         speed = 0;
       }
       return finish(mine);
@@ -91,8 +106,8 @@
       online = navigator.onLine !== false;
       return Promise.resolve(done(online, connection && connection.downlink ? Number(connection.downlink) : 0, 0));
     }
-    return read(PROBE + Date.now())
-      .catch(function () { return read(PROBE_FALLBACK); })
+    return read(PROBE + '?cb=' + Date.now())
+      .catch(function () { return read(PROBE_FALLBACK + Date.now()); })
       .then(function (size) {
         var ended = (root.performance && performance.now) ? performance.now() : Date.now();
         var seconds = Math.max((ended - started) / 1000, 0.05);
