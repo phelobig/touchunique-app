@@ -48,6 +48,11 @@
     group('projet', 'Application', db.projects, ['name', 'client', 'type', 'status', 'amount', 'due', 'source', 'company', 'phone']);
     group('tâche', 'Application', db.tasks, ['title', 'phase', 'priority', 'status', 'projectId']);
     group('client', 'Application', db.clients, ['name', 'phone', 'email', 'city']);
+    var prospects = db.prospects || [];
+    group('prospect', 'Application · en ligne', prospects.filter(function (p) { return (p.bucket || 'online') !== 'images'; }),
+      ['name', 'company', 'phone', 'email', 'city', 'need', 'source', 'status', 'domainLabel']);
+    group('prospect image', 'Application · images', prospects.filter(function (p) { return p.bucket === 'images'; }),
+      ['name', 'company', 'phone', 'email', 'city', 'need', 'source', 'status', 'domainLabel']);
     group('commande', 'Site web', db.leads, ['ref', 'client.name', 'client.phone', 'type', 'score', 'level', 'nextAction']);
     group('entreprise', 'Application', db.companies, ['name', 'sector', 'city', 'contact', 'phone', 'email']);
     group('dossier', 'Application', db.folders, ['name', 'parent', 'company']);
@@ -147,6 +152,42 @@
     return out;
   }
 
+  /* Réponses exactes aux questions de comptage, sans passer par l'IA distante. */
+  function countAnswer(index, query) {
+    var q = norm(query);
+    if (q.indexOf('combien') < 0) return '';
+    var c = counts(index);
+    var lines = [];
+    function add(label, n) { lines.push(label + ' : ' + n); }
+    if (q.indexOf('prospect') >= 0) {
+      var images = c['prospect image'] || 0;
+      var online = c['prospect'] || 0;
+      if (q.indexOf('image') >= 0) {
+        add('Prospects issus d’images', images);
+        var domains = {};
+        index.forEach(function (r) {
+          if (r.type !== 'prospect image') return;
+          var d = r.meta && (r.meta.domainLabel || r.meta.domain) || 'Autre domaine';
+          domains[d] = (domains[d] || 0) + 1;
+        });
+        if (Object.keys(domains).length) add('Par domaine', Object.keys(domains).sort().map(function (d) { return d + ' (' + domains[d] + ')'; }).join(', '));
+      } else if (q.indexOf('ligne') >= 0 || q.indexOf('en ligne') >= 0) {
+        add('Prospects en ligne', online);
+      } else {
+        add('Prospects en ligne', online);
+        add('Prospects issus d’images', images);
+        add('Total prospects', online + images);
+      }
+    }
+    if (q.indexOf('fichier') >= 0) add('Fichiers importés', c['fichier'] || 0);
+    if (q.indexOf('client') >= 0) add('Clients', c['client'] || 0);
+    if (q.indexOf('projet') >= 0) add('Projets', c['projet'] || 0);
+    if (q.indexOf('offre') >= 0) add('Offres', c['offre'] || 0);
+    if (!lines.length) return '';
+    return 'Voici le décompte exact de l’index local :\n' + lines.join('\n') +
+      '\n\nLes deux bacs Prospect restent séparés : aucun doublon n’est fusionné entre le web et les images.';
+  }
+
   function localAnswer(index, query, hits) {
     var c = counts(index);
     var files = index.filter(function (r) { return r.type === 'fichier'; }).length;
@@ -167,6 +208,8 @@
     var q = String(query || '').trim();
     if (!q) return Promise.resolve({ answer: 'Posez une question sur vos données.', sources: [] });
     return buildIndex().then(function (index) {
+      var exact = countAnswer(index, q);
+      if (exact) return { answer: exact, sources: [] };
       var hits = search(index, q);
       var sources = hits.slice(0, 6).map(function (h) { return h.source + ' · ' + h.title; });
       var AI = root.TUSAI;
@@ -175,9 +218,11 @@
         var context = hits.slice(0, 8).map(function (h) {
           return '- [' + h.type + ' · ' + h.source + '] ' + h.title + ' : ' + String(h.text).slice(0, 500);
         }).join('\n');
+        var tallyMap = counts(index);
+        var tally = Object.keys(tallyMap).sort().map(function (k) { return k + ' : ' + tallyMap[k]; }).join(', ');
         var prompt = 'Tu es l’assistant administrateur local Touch Unique. Réponds en français, de façon précise, ' +
           'uniquement à partir des éléments ci-dessous. Cite les sources. Si l’information manque, dis-le.\n\n' +
-          'Données indexées : ' + index.length + ' éléments.\n' + context + '\n\nQuestion : ' + q;
+          'Données indexées : ' + index.length + ' éléments. Répartition : ' + tally + '.\n' + context + '\n\nQuestion : ' + q;
         return AI.ask(prompt).then(function (r) {
           return {
             answer: (r.text || localAnswer(index, q, hits)) + '\n\n— Sources : ' +
