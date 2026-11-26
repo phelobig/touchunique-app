@@ -2,13 +2,14 @@
 <html lang="fr" data-theme="light">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'self' https:; frame-src 'self' https:; worker-src 'self' blob:">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#c8102e">
   <meta name="description" content="Application Touch Unique Studio — projets, commandes du site, contenus IA, publication sociale et boutique automatisée.">
   <title>Touch Unique — Application de gestion</title>
   <link rel="icon" href="ic_launcher_192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=13">
+  <link rel="stylesheet" href="styles.css?v=18">
 </head>
 <body>
   <div class="app-bg" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -33,6 +34,11 @@
         <button class="top-icon menu-btn" id="menu-btn" aria-label="Ouvrir le menu">☰</button>
         <div class="top-title"><span id="page-kicker">Espace de gestion</span><h1 id="page-title">Tableau de bord</h1></div>
         <div class="top-actions">
+          <div class="net-meter" id="net-meter" title="Débit réseau et état de la connexion" aria-label="État du réseau">
+            <span class="net-led" id="net-led" aria-hidden="true"></span>
+            <span class="net-readout"><b id="net-label">Connexion…</b><small id="net-detail">calcul du débit</small></span>
+            <button class="net-toggle" id="net-toggle" type="button" aria-pressed="true" title="Activer ou désactiver la connexion réseau">ACTIF</button>
+          </div>
           <span class="sync-state" id="sync-state" role="status" aria-live="polite">Synchronisation locale prête</span>
           <button class="top-icon" id="theme-btn" aria-label="Changer de thème" title="Changer de thème">◐</button>
           <button class="top-icon notif-btn" id="notif-btn" aria-label="Notifications">🔔<span class="notif-dot" id="notif-dot" hidden></span></button>
@@ -44,7 +50,26 @@
     </div>
   </div>
 
-  <!-- Assistant flottant -->
+  <!-- Assistants flottants -->
+  <button class="ai-fab admin-fab" id="admin-fab" aria-label="Ouvrir l’assistant administrateur" aria-expanded="false" title="Assistant administrateur · fichiers et données">🛡</button>
+  <aside class="ai-panel admin-panel" id="admin-panel" aria-label="Assistant administrateur local" inert>
+    <div class="ai-panel-head">
+      <div><b>Administrateur local</b><small>Fichiers · application · site web</small></div>
+      <button class="icon-btn" id="admin-close" aria-label="Fermer l’assistant administrateur">✕</button>
+    </div>
+    <div class="ai-messages" id="admin-messages" role="log" aria-live="polite"></div>
+    <div class="ai-suggestions" id="admin-suggestions">
+      <button type="button" data-query="Quels sont mes projets en cours ?">Projets en cours</button>
+      <button type="button" data-query="Cherche mes fichiers et documents">Mes fichiers</button>
+      <button type="button" data-query="Résumé des commandes du site">Commandes site</button>
+      <button type="button" data-query="@import">+ Importer</button>
+    </div>
+    <form class="ai-input" id="admin-form">
+      <input id="admin-text" placeholder="Interrogez vos données…" autocomplete="off">
+      <button class="btn btn-primary btn-sm" type="submit">Analyser</button>
+    </form>
+    <input type="file" id="admin-file-input" multiple hidden>
+  </aside>
   <button class="ai-fab" id="ai-fab" aria-label="Ouvrir l’assistant IA" aria-expanded="false">✺</button>
   <aside class="ai-panel" id="ai-panel" aria-label="Assistant Touch Unique" inert>
     <div class="ai-panel-head">
@@ -73,11 +98,28 @@
         <label class="field"><span>Mot de passe (8 caractères minimum)</span><input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
         <label class="field"><span>Confirmer le mot de passe</span><input name="confirm" type="password" required minlength="8" autocomplete="new-password"></label>
         <div class="field full"><label class="switch"><input type="checkbox" name="show"> Afficher les mots de passe</label></div>
+        <div class="field full"><label class="switch"><input type="checkbox" name="remember" checked> Rester connecté sur cet appareil</label></div>
         <div class="field full"><div class="gate-divider">Serveur sécurisé — facultatif, vous pourrez le configurer plus tard dans les réglages</div></div>
         <label class="field full"><span>URL du serveur sécurisé</span><input name="url" type="url" placeholder="https://mon-serveur.onrender.com"></label>
         <label class="field full"><span>Clé d’accès au serveur (si demandée)</span><input name="key" type="password" autocomplete="off"></label>
         <button class="btn btn-primary btn-block" type="submit" style="grid-column:1/-1">Créer mon espace sécurisé</button>
       </form>
+      <div class="qr-gate" data-qr-gate>
+        <div class="gate-divider">Déjà un compte sur un autre appareil ?</div>
+        <div class="row" style="flex-wrap:wrap;gap:6px">
+          <button class="btn btn-ghost btn-sm" type="button" data-qr="show">Afficher mon code QR</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-qr="scan">Scanner avec la caméra</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-qr="paste">Saisir un code</button>
+        </div>
+        <div class="qr-panel" hidden>
+          <img class="qr-image" alt="Code QR de connexion" hidden>
+          <label class="field full"><span>Photo ou image du code QR</span><input class="qr-file" type="file" accept="image/*" capture="environment"></label>
+          <label class="field full"><span>Code QR reçu (texte)</span><textarea class="qr-text" rows="3" placeholder="Collez ici le code affiché sur l’autre appareil"></textarea></label>
+          <div class="gate-error" hidden></div>
+          <div class="row"><button class="btn btn-primary btn-sm" type="button" data-qr="apply">Se connecter et synchroniser</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-qr="close">Fermer</button></div>
+        </div>
+      </div>
       <p class="subtle small">Le moteur local reste disponible immédiatement. Les clés des IA se saisissent plus tard dans les réglages.</p>
     </div>
   </div>
@@ -92,8 +134,25 @@
       <form id="lock-form" class="form-grid">
         <label class="field full"><span>E-mail</span><input name="email" type="email" required autocomplete="username"></label>
         <label class="field full"><span>Mot de passe</span><input name="password" type="password" required autocomplete="current-password"></label>
+        <div class="field full"><label class="switch"><input type="checkbox" name="remember" checked> Rester connecté sur cet appareil</label></div>
         <button class="btn btn-primary btn-block" type="submit" style="grid-column:1/-1">Ouvrir mon espace</button>
       </form>
+      <div class="qr-gate" data-qr-gate>
+        <div class="gate-divider">Connexion par code QR</div>
+        <div class="row" style="flex-wrap:wrap;gap:6px">
+          <button class="btn btn-ghost btn-sm" type="button" data-qr="show">Afficher mon code QR</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-qr="scan">Scanner avec la caméra</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-qr="paste">Saisir un code</button>
+        </div>
+        <div class="qr-panel" hidden>
+          <img class="qr-image" alt="Code QR de connexion" hidden>
+          <label class="field full"><span>Photo ou image du code QR</span><input class="qr-file" type="file" accept="image/*" capture="environment"></label>
+          <label class="field full"><span>Code QR reçu (texte)</span><textarea class="qr-text" rows="3" placeholder="Collez ici le code affiché sur l’autre appareil"></textarea></label>
+          <div class="gate-error" hidden></div>
+          <div class="row"><button class="btn btn-primary btn-sm" type="button" data-qr="apply">Se connecter et synchroniser</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-qr="close">Fermer</button></div>
+        </div>
+      </div>
       <button class="link-btn" id="lock-help" type="button">Mot de passe oublié ? Contacter le support</button>
     </div>
   </div>
@@ -101,17 +160,27 @@
   <div class="modal-root" id="modal-root" hidden></div>
   <div class="toast-root" id="toast-root" role="status" aria-live="polite"></div>
 
-  <script src="sync.js?v=13"></script>
-  <script src="data.js?v=13"></script>
-  <script src="automation.js?v=13"></script>
-  <script src="tus-ai.js?v=13"></script>
-  <script src="tus-accounts.js?v=13"></script>
-  <script src="tus-cloud.js?v=13"></script>
-  <script src="tus-catalog.js?v=13"></script>
-  <script src="robots.js?v=13"></script>
-  <script src="filemanager.js?v=13"></script>
-  <script src="setup.js?v=13"></script>
-  <script src="store.js?v=13"></script>
-  <script src="app.js?v=13"></script>
+  <script src="sync.js?v=18"></script>
+  <script src="data.js?v=18"></script>
+  <script src="automation.js?v=18"></script>
+  <script src="tus-secure.js?v=18"></script>
+  <script src="tus-ai.js?v=18"></script>
+  <script src="tus-accounts.js?v=18"></script>
+  <script src="tus-cloud.js?v=18"></script>
+  <script src="tus-catalog.js?v=18"></script>
+  <script src="tus-messages.js?v=18"></script>
+  <script src="qrcode.min.js?v=18"></script>
+  <script src="jsqr.min.js?v=18"></script>
+  <script src="qr-sync.js?v=18"></script>
+  <script src="prospects.js?v=18"></script>
+  <script src="robots.js?v=18"></script>
+  <script src="network.js?v=18"></script>
+  <script src="updates.js?v=18"></script>
+  <script src="collab-auto.js?v=18"></script>
+  <script src="filemanager.js?v=18"></script>
+  <script src="setup.js?v=18"></script>
+  <script src="store.js?v=18"></script>
+  <script src="admin-assistant.js?v=18"></script>
+  <script src="app.js?v=18"></script>
 </body>
 </html>

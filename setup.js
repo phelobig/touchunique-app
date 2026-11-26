@@ -44,16 +44,22 @@
       }
       try {
         var user = Accounts.register({
-          name: f.get('name'), email: f.get('email'), password: f.get('password')
+          name: f.get('name'), email: f.get('email'), password: f.get('password'),
+          remember: f.has('remember')
         });
         Promise.resolve(user).then(function (u) {
-          var url = String(f.get('url') || '').trim();
           try {
-            if (url && root.TUSCloud) {
-              root.TUSCloud.connect(url);
-              root.TUSCloud.setKey(f.get('key') || '');
-              if (root.TUSAI) { root.TUSAI.connect(url); root.TUSAI.setKey(f.get('key') || ''); }
-            }
+            var sec = root.TUSSecure || {};
+            var url = String(f.get('url') || '').trim();
+            var clean = '';
+            if (url) {
+              if (!sec.serverURL) throw new Error('Validation du serveur indisponible.');
+              clean = sec.serverURL(url);
+              if (root.TUSCloud) root.TUSCloud.connect(clean);
+              if (root.TUSAI) root.TUSAI.connect(clean);
+              if (root.TUSMessages) root.TUSMessages.setServer(clean);
+              if (sec.setSecret) sec.setSecret(f.get('key') || '');
+            } else if (sec.clearSecrets) sec.clearSecrets();
             if (root.Store) root.Store.completeSetup();
             finish(u);
           } catch (err) { showError(setupForm, err.message); }
@@ -73,16 +79,75 @@
       e.preventDefault();
       clearError(lockForm);
       var f = new FormData(lockForm);
-      root.TUSAccounts.login(f.get('email'), f.get('password')).then(finish)
+      root.TUSAccounts.login(f.get('email'), f.get('password'), f.has('remember')).then(finish)
         .catch(function (err) { showError(lockForm, err.message); });
     });
+
+    initQR(setupForm);
+    initQR(lockForm);
 
     var help = $('#lock-help');
     if (help) help.addEventListener('click', function () {
       root.open('https://wa.me/22655041530?text=' + encodeURIComponent(
         'Bonjour Touch Unique, je ne parviens plus à ouvrir mon espace de gestion (compte ' +
         (lockForm.querySelector('[name="email"]').value || '').trim() + ').'),
-        '_blank', 'noopener');
+        '_blank', 'noopener,noreferrer');
+    });
+  }
+
+  function initQR(form) {
+    var zone = form.parentNode && form.parentNode.querySelector('[data-qr-gate]');
+    if (!zone || !root.TUSQRSync) return;
+    var panel = zone.querySelector('.qr-panel');
+    var img = zone.querySelector('.qr-image');
+    var file = zone.querySelector('.qr-file');
+    var text = zone.querySelector('.qr-text');
+    var error = zone.querySelector('.qr-panel .gate-error');
+    function fail(message) {
+      if (!error) return showError(form, message);
+      error.textContent = message; error.hidden = false;
+    }
+    function clear() { if (error) { error.textContent = ''; error.hidden = true; } }
+    zone.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-qr]');
+      if (!btn) return;
+      e.preventDefault();
+      clear();
+      var act = btn.dataset.qr;
+      if (act === 'close') { panel.hidden = true; return; }
+      panel.hidden = false;
+      if (act === 'show') {
+        try {
+          var code = root.TUSQRSync.makeSync();
+          img.src = root.TUSQRSync.image(code, 5);
+          img.hidden = false;
+          text.value = code;
+          fail('Code QR affiché. Scannez-le depuis votre autre appareil, ou copiez le texte ci-dessus. Ne le partagez pas.');
+        } catch (err) { fail(err.message); }
+      } else if (act === 'scan') {
+        if (file) file.click();
+      } else if (act === 'paste') {
+        text.focus();
+      } else if (act === 'apply') {
+        try {
+          var keep = form.querySelector('[name="remember"]') ? form.querySelector('[name="remember"]').checked : true;
+          var res = root.TUSQRSync.apply(text.value, keep);
+          if (root.Store) root.Store.completeSetup();
+          if (res.pending) {
+            fail('Compte importé. Saisissez votre mot de passe sur cet appareil pour ouvrir l’espace.');
+            show('lock');
+            return;
+          }
+          finish(res.user);
+        } catch (err) { fail(err.message); }
+      }
+    });
+    if (file) file.addEventListener('change', function () {
+      clear();
+      root.TUSQRSync.decodeFile(file.files && file.files[0]).then(function (code) {
+        text.value = code;
+        fail('Code QR lu. Vérifiez puis appuyez sur « Se connecter et synchroniser ».');
+      }).catch(function (err) { fail(err.message); });
     });
   }
 

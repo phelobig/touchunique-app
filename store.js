@@ -10,6 +10,40 @@
   function uid(prefix) { return A.uid ? A.uid(prefix || 'TU') : (prefix || 'TU') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase(); }
   function today() { return new Date().toISOString().slice(0, 10); }
 
+  var MAX_IMPORT_BYTES = 4 * 1024 * 1024;
+  var IMPORT_KEYS = ['version', 'demo', 'setupDone', 'createdAt', 'settings', 'clients', 'projects',
+    'tasks', 'leads', 'prospects', 'knownLeadIds', 'companies', 'folders', 'contents', 'robots',
+    'social', 'shop', 'logs', 'stats'];
+  var IMPORT_LISTS = ['clients', 'projects', 'tasks', 'leads', 'prospects', 'companies', 'folders', 'contents', 'robots', 'social'];
+  var SAFE_KEY = /^[A-Za-z0-9_-]{1,80}$/;
+
+  function plainObject(v) {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
+    try { return Object.getPrototypeOf(v) === Object.prototype; } catch (e) { return false; }
+  }
+  function cleanText(v, max) { return String(v == null ? '' : v).slice(0, max || 1200); }
+  function cleanNumber(v) {
+    var n = Number(v);
+    return isFinite(n) ? Math.min(Math.max(n, 0), 1000000000000) : 0;
+  }
+  /* Copie récursive bornée : aucun objet inattendu, aucune clé prototype. */
+  function cleanValue(v, depth) {
+    if (v == null || typeof v === 'boolean') return v;
+    if (typeof v === 'string') return cleanText(v, 4000);
+    if (typeof v === 'number') return cleanNumber(v);
+    if (depth > 6) return null;
+    if (Array.isArray(v)) return v.slice(0, 500).map(function (x) { return cleanValue(x, depth + 1); });
+    if (plainObject(v)) {
+      var out = {};
+      Object.keys(v).slice(0, 150).forEach(function (k) {
+        if (!SAFE_KEY.test(k) || k === '__proto__' || k === 'constructor' || k === 'prototype') return;
+        out[k] = cleanValue(v[k], depth + 1);
+      });
+      return out;
+    }
+    return null;
+  }
+
   function seed() {
     var p1 = uid('PR'), p2 = uid('PR'), p3 = uid('PR');
     var c1 = uid('CL'), c2 = uid('CL'), c3 = uid('CL');
@@ -47,6 +81,7 @@
         { id: uid('TK'), projectId: p3, title: 'Recevoir les photos d’élèves', phase: 'Brief', priority: 'moyenne', status: 'à faire', createdAt: now(), ai: false }
       ],
       leads: [],
+      prospects: [],
       knownLeadIds: [],
       companies: [],
       folders: [],
@@ -72,7 +107,7 @@
     d.demo = false;
     d.setupDone = false;
     d.clients = []; d.projects = []; d.tasks = []; d.leads = []; d.contents = []; d.social = []; d.robots = [];
-    d.companies = []; d.folders = [];
+    d.companies = []; d.folders = []; d.prospects = [];
     d.shop.orders = [];
     d.logs = [{ id: uid('LG'), at: now(), text: 'Application prête.' }];
     return d;
@@ -102,9 +137,17 @@
   }
 
   var db = load();
+  var saveError = '';
 
   function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* mémoire seulement */ }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(db));
+      saveError = '';
+      return true;
+    } catch (e) {
+      saveError = (e && e.message) || 'Stockage local indisponible';
+      return false;
+    }
   }
   function list(name) {
     if (!Array.isArray(db[name])) db[name] = [];
@@ -193,10 +236,68 @@
   }
   function unreadLeads() { return db.leads.filter(function (l) { return !l.seen; }).length; }
   function exportData() { return JSON.stringify(db, null, 2); }
-  function importData(text) {
-    var parsed = JSON.parse(text);
-    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.projects)) throw new Error('Format invalide');
-    db = parsed; save(); return true;
+  /* Remplacement complet de la base : schéma strict, taille bornée et
+     confirmation explicite de la part de l’appelant. */
+  function importData(text, options) {
+    if (!options || options.confirmed !== true) {
+      throw new Error('Confirmez le remplacement des données locales avant l’import.');
+    }
+    if (typeof text !== 'string' || text.length > MAX_IMPORT_BYTES) {
+      throw new Error('Fichier trop volumineux (4 Mo maximum).');
+    }
+    var parsed;
+    try { parsed = JSON.parse(text); }
+    catch (e) { throw new Error('Fichier JSON illisible.'); }
+    if (!plainObject(parsed)) throw new Error('Format invalide.');
+    if (Object.keys(parsed).some(function (k) { return IMPORT_KEYS.indexOf(k) < 0; })) {
+      throw new Error('Format invalide : champs inattendus.');
+    }
+    if (!Array.isArray(parsed.projects)) throw new Error('Format invalide : projets manquants.');
+    if (IMPORT_LISTS.some(function (k) { return parsed[k] != null && !Array.isArray(parsed[k]); })) {
+      throw new Error('Format invalide : liste inattendue.');
+    }
+    [parsed.settings, parsed.shop, parsed.stats].forEach(function (v) {
+      if (v != null && !plainObject(v)) throw new Error('Format invalide : objet inattendu.');
+    });
+    if (parsed.knownLeadIds != null && !Array.isArray(parsed.knownLeadIds)) throw new Error('Format invalide.');
+    if (parsed.logs != null && !Array.isArray(parsed.logs)) throw new Error('Format invalide.');
+
+    var clean = {};
+    Object.keys(parsed).forEach(function (k) { clean[k] = cleanValue(parsed[k], 0); });
+    clean.version = 2;
+    clean.demo = !!clean.demo;
+    clean.setupDone = !!clean.setupDone;
+    clean.createdAt = cleanText(clean.createdAt, 40) || now();
+    if (!plainObject(clean.settings)) clean.settings = {};
+    if (!plainObject(clean.stats)) clean.stats = {};
+    IMPORT_LISTS.forEach(function (k) {
+      clean[k] = (Array.isArray(clean[k]) ? clean[k] : []).slice(0, 2000).filter(plainObject);
+    });
+    clean.knownLeadIds = (Array.isArray(clean.knownLeadIds) ? clean.knownLeadIds : [])
+      .slice(0, 300).map(function (x) { return cleanText(x, 120); }).filter(Boolean);
+    clean.logs = (Array.isArray(clean.logs) ? clean.logs : []).slice(0, 200).filter(plainObject);
+    clean.shop = plainObject(clean.shop) ? clean.shop : {};
+    var orders = clean.shop.orders, suggestions = clean.shop.suggestions, overrides = clean.shop.overrides;
+    clean.shop = {
+      orders: (Array.isArray(orders) ? orders : []).slice(0, 2000).filter(plainObject),
+      overrides: {},
+      suggestions: (Array.isArray(suggestions) ? suggestions : []).slice(0, 500).filter(plainObject)
+    };
+    if (plainObject(overrides)) {
+      Object.keys(overrides).slice(0, 500).forEach(function (id) {
+        if (SAFE_KEY.test(id) && plainObject(overrides[id])) clean.shop.overrides[id] = overrides[id];
+      });
+    }
+    ['runs', 'generated', 'social', 'imports'].forEach(function (k) {
+      clean.stats[k] = cleanNumber(clean.stats[k]);
+    });
+    var base = defaults();
+    Object.keys(base).forEach(function (k) { if (clean[k] == null) clean[k] = base[k]; });
+    Object.keys(base.settings).forEach(function (k) {
+      if (clean.settings[k] == null) clean.settings[k] = base.settings[k];
+    });
+    db = clean;
+    return save();
   }
   function reset(demo) {
     db = demo ? seed() : defaults();
@@ -207,6 +308,7 @@
     KEY: KEY,
     get db() { return db; },
     save: save,
+    storageError: function () { return saveError; },
     uid: uid,
     today: today,
     now: now,
@@ -219,6 +321,7 @@
     syncSiteLeads: syncSiteLeads,
     products: products, migrateShop: migrateShop,
     companies: function () { return list('companies'); },
+    clients: function () { return list('clients'); },
     folders: function () { return list('folders'); },
     projectsFor: function (company) {
       return (db.projects || []).filter(function (p) { return !company || p.company === company; });

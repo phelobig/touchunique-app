@@ -14,10 +14,118 @@
   var page = 'home';
   var state = {
     lastContent: null, socialFilter: 'all', toastTimers: [], robotInfo: null,
-    cloudInfo: null, agentInfo: null, filesList: [], fileCompany: '', fileProject: '',
-    fileFolder: '', pipelineResult: null, companyFilter: '',
-    managerFolder: 'root', managerFolders: [], managerFiles: [], managerAll: [], managerPath: 'Mes fichiers'
+    cloudInfo: null, oauthInfo: null, agentInfo: null, filesList: [], fileCompany: '', fileProject: '',
+    fileFolder: '', pipelineResult: null, companyFilter: '', nativePerms: null,
+    collabFolders: [], collabEvidence: null,
+    managerFolder: 'root', managerFolders: [], managerFiles: [], managerAll: [], managerPath: 'Mes fichiers',
+    msgThread: '', msgRec: null, prospectFilter: 'tous', prospectBucket: 'online', prospectDomain: 'tous'
   };
+
+  function nativeBridge() {
+    return window.TUSNative && window.TUSNative.permissions ? window.TUSNative : null;
+  }
+
+  function readNativePermissions() {
+    var bridge = nativeBridge();
+    if (!bridge) return null;
+    try { return JSON.parse(bridge.permissions()); } catch (e) { return null; }
+  }
+
+  function permChip(label, ok) {
+    return '<span class="chip ' + (ok ? 'green' : 'gray') + '">' + esc(label) + ' ' + (ok ? '✓' : 'à autoriser') + '</span>';
+  }
+
+  function paintNativePermissions() {
+    var box = $('#native-perms');
+    if (!box) return;
+    var p = state.nativePerms;
+    if (!p || !p.android) {
+      box.textContent = 'Application web : les autorisations sont gérées par le navigateur.';
+      return;
+    }
+    box.innerHTML = permChip('Fichiers', !!p.storage) + ' ' +
+      permChip('Caméra / photo', !!p.camera) + ' ' +
+      permChip('Superposition', !!p.overlay) + ' ' +
+      permChip('Notifications', !!p.notifications);
+  }
+
+  function refreshNativePermissions() {
+    state.nativePerms = readNativePermissions();
+    if (page === 'settings') paintNativePermissions();
+  }
+
+  function oauthStatuses() {
+    var list = state.oauthInfo;
+    if (!list || !list.length) list = state.cloudInfo && state.cloudInfo.oauth;
+    if (!list || !list.length) {
+      list = (Cloud && Cloud.OAUTH_PROVIDERS ? Cloud.OAUTH_PROVIDERS : []).map(function (p) {
+        return { id: p.id, name: p.name, hint: p.hint, console: p.console, configured: false, connected: false };
+      });
+    }
+    return list;
+  }
+
+  function oauthChip(provider) {
+    var connected = provider.id === 'google'
+      ? !!(state.cloudInfo && state.cloudInfo.google && state.cloudInfo.google.connected)
+      : !!provider.connected;
+    var cls = connected ? 'green' : (provider.configured ? 'amber' : 'gray');
+    var label = connected ? 'Connecté' : (provider.configured ? 'Prêt à connecter' : 'À configurer');
+    return '<span class="chip ' + cls + '">' + label + '</span>';
+  }
+
+  function paintOAuth() {
+    var box = $('#oauth-list');
+    if (!box || !Cloud) return;
+    var redirect = (state.oauthInfo && state.oauthInfo.length && state.oauthInfo[0].redirectUri) ||
+      (state.cloudInfo && state.cloudInfo.redirectUri) || '';
+    box.innerHTML = oauthStatuses().map(function (p) {
+      var meta = (Cloud.OAUTH_PROVIDERS || []).find(function (x) { return x.id === p.id; }) || p;
+      var connected = p.id === 'google'
+        ? !!(state.cloudInfo && state.cloudInfo.google && state.cloudInfo.google.connected)
+        : !!p.connected;
+      return '<div class="account-row"><div><b>' + esc(meta.name || p.name || p.id) + '</b>' +
+        '<div class="subtle small">' + esc(meta.hint || p.hint || '') + '</div>' +
+        '<div class="row" style="margin-top:6px">' + oauthChip(p) +
+        (safeExternal(meta.console, CONSOLE_HOSTS) ? '<a class="link-btn" href="' + safeExternal(meta.console, CONSOLE_HOSTS) + '" target="_blank" rel="noopener noreferrer">Créer l’application ↗</a>' : '') +
+        '</div></div><div class="row">' +
+        (connected && p.id !== 'google' ? '<button class="btn btn-ghost btn-sm" data-act="oauth-disconnect" data-id="' + esc(p.id) + '">Retirer</button>' : '') +
+        '<button class="btn btn-ghost btn-sm" data-act="oauth-connect" data-id="' + esc(p.id) + '">' +
+        (connected ? 'Reconnecter' : 'Connecter') + '</button></div></div>';
+    }).join('') + (redirect ? '<p class="subtle small">URI de redirection à déclarer : <code>' + esc(redirect) + '</code></p>' : '');
+  }
+
+  function refreshOAuth() {
+    if (!Cloud || !Cloud.configured()) { state.oauthInfo = null; return Promise.resolve(); }
+    return Cloud.oauthProviders().then(function (res) {
+      state.oauthInfo = res.providers || [];
+      if (page === 'settings') paintOAuth();
+    }).catch(function () { return null; });
+  }
+
+  function paintUpdates(s) {
+    if (!window.TUSUpdates || page !== 'settings') return;
+    window.TUSUpdates.status().then(function (info) {
+      var current = s || info;
+      var badge = $('#updates-platform'), box = $('#updates-status');
+      var url = $('#updates-url'), auto = $('#updates-auto');
+      if (badge) {
+        badge.textContent = current.supported ? (current.platform === 'android' ? 'Android' : 'Windows') : 'Navigateur';
+        badge.className = 'chip ' + (current.supported ? 'green' : 'gray');
+      }
+      if (box) {
+        var msg = 'Version installée : ' + esc(current.installed || '—');
+        if (current.available && current.available !== current.installed) msg += ' · version disponible : ' + esc(current.available);
+        if (current.updated) msg += ' · mise à jour appliquée';
+        if (current.busy) msg += ' · vérification en cours…';
+        if (current.error) msg += ' · ' + esc(current.error);
+        if (!current.supported) msg = 'Disponible uniquement dans les applications Android et Windows installées.';
+        box.textContent = msg;
+      }
+      if (url && document.activeElement !== url) url.value = current.url || '';
+      if (auto) auto.checked = current.auto !== false;
+    }).catch(function () { /* affichage non bloquant */ });
+  }
 
   var NAV = [
     { id: 'home', label: 'Tableau de bord', icon: '⌂', kicker: 'Vue d’ensemble', title: 'Tableau de bord' },
@@ -27,6 +135,7 @@
     { id: 'manager', label: 'Gestionnaire de fichiers', icon: '📂', kicker: 'Dossiers, fichiers et analyse', title: 'Gestionnaire de fichiers' },
     { id: 'collab', label: 'Collaboration IA', icon: '⇄', kicker: 'Quatre agents, un dossier', title: 'Collaboration IA' },
     { id: 'leads', label: 'Commandes du site', icon: '🌐', kicker: 'Pipeline commercial', title: 'Commandes du site' },
+    { id: 'prospect', label: 'Prospect', icon: '🔎', kicker: 'Pistes classées par le robot', title: 'Prospect' },
     { id: 'content', label: 'Contenus IA', icon: '✦', kicker: 'Création assistée', title: 'Contenus IA' },
     { id: 'social', label: 'File sociale', icon: '▶', kicker: 'Publication', title: 'File sociale' },
     { id: 'robots', label: 'Robots', icon: '✺', kicker: 'Tâches automatiques', title: 'Robots' },
@@ -86,6 +195,40 @@
     }
   }
   function waLink(text) { return BRAND.whatsapp + '?text=' + encodeURIComponent(text || 'Bonjour Touch Unique.'); }
+  var CONSOLE_HOSTS = /^(console\.cloud\.google\.com|developers\.facebook\.com|www\.linkedin\.com|developer\.x\.com)$/i;
+  var PROVIDER_HOSTS = /^(platform\.openai\.com|www\.perplexity\.ai|aistudio\.google\.com|console\.anthropic\.com)$/i;
+  /* Liens externes : TUSSecure.safeHref + HTTPS + hôtes attendus uniquement. */
+  function safeExternal(value, hosts) {
+    try {
+      var S = window.TUSSecure || {};
+      if (!S.safeHref) return '';
+      var href = S.safeHref(value);
+      var u = new URL(href);
+      if (u.protocol !== 'https:' || !hosts.test(u.hostname)) return '';
+      return esc(href);
+    } catch (e) { return ''; }
+  }
+  /* Pièce jointe : même hôte que le serveur autorisé, jamais un tiers. */
+  function safeAttachment(value) {
+    try {
+      var S = window.TUSSecure || {};
+      if (!S.safeHref) return '';
+      var href = S.safeHref(value);
+      var u = new URL(href);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+      var M = window.TUSMessages || {};
+      var base = M.server ? M.server() : (S.storedServerURL ? S.storedServerURL() : '');
+      var allowed = false;
+      if (base) {
+        try {
+          var clean = S.serverURL ? S.serverURL(base) : base;
+          allowed = new URL(clean).hostname === u.hostname;
+        } catch (e) { allowed = false; }
+      }
+      if (!allowed && u.protocol === 'http:' && /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(u.hostname)) allowed = true;
+      return allowed ? esc(href) : '';
+    } catch (e) { return ''; }
+  }
   function statusChip(status) {
     var s = String(status || '').toLowerCase();
     var cls = /livr|publi|trait|confirm/.test(s) ? 'green' : /production|en cours|programm/.test(s) ? 'blue' : /brief|à faire|nouveau/.test(s) ? 'amber' : 'gray';
@@ -97,6 +240,19 @@
   }
 
   /* ---------- Navigation ---------- */
+  function updateBadges() {
+    var unread = Store.unreadLeads();
+    var demo = $('#demo-chip');
+    if (demo) demo.hidden = !Store.db.demo;
+    var dot = $('#notif-dot');
+    if (dot) dot.hidden = unread === 0;
+    var badge = $('#side-nav .nav-item[data-page="leads"] .badge');
+    if (badge) {
+      badge.textContent = unread;
+      badge.hidden = !unread;
+    }
+  }
+
   function renderNav() {
     var unread = Store.unreadLeads();
     $('#side-nav').innerHTML = NAV.map(function (n) {
@@ -104,22 +260,24 @@
       return '<button class="nav-item' + (n.id === page ? ' active' : '') + '" data-page="' + n.id + '">' +
         '<span class="ico">' + n.icon + '</span><span>' + n.label + '</span>' + badge + '</button>';
     }).join('');
-    $('#demo-chip').hidden = !Store.db.demo;
-    var dot = $('#notif-dot');
-    if (dot) dot.hidden = unread === 0;
+    updateBadges();
   }
+
   function go(id) {
     var n = NAV.find(function (x) { return x.id === id; }) || NAV[0];
+    var changed = page !== n.id;
+    var previousTop = content.scrollTop;
     page = n.id;
     $('#page-title').textContent = n.title;
     $('#page-kicker').textContent = n.kicker;
     renderNav();
     content.innerHTML = views[page] ? views[page]() : '';
-    content.scrollTop = 0;
-    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+    content.scrollTop = changed ? 0 : previousTop;
     if (page === 'content' && state.lastContent) paintContentResult(state.lastContent);
+    if (page === 'settings') { refreshNativePermissions(); paintOAuth(); paintUpdates(); }
     if (page === 'manager') { bindManager(); loadManager(); }
+    if (page === 'social') refreshInbox(true);
+    if (page === 'social' || page === 'prospect') startNativePollingSilent();
   }
 
   /* ---------- Vues ---------- */
@@ -168,6 +326,18 @@
       }).join('') + '</div></div>' +
       '</div></div>';
   };
+  function loadCollabFolders() {
+    if (!window.TUSFiles) return Promise.resolve([]);
+    return window.TUSFiles.allFolders().then(function (list) {
+      state.collabFolders = list || [];
+      if (page === 'collab') go('collab');
+      return state.collabFolders;
+    }).catch(function () { return []; });
+  }
+
+  function robotAvatar(r, large) {
+    return '<span class="robot-avatar ' + esc(r.color || 'blue') + (large ? ' lg' : '') + '" aria-hidden="true">' + esc(r.icon || '🤖') + '</span>';
+  }
   function kpi(v, label, icon) {
     return '<div class="kpi"><i>' + icon + '</i><b class="num">' + v + '</b><span>' + esc(label) + '</span></div>';
   }
@@ -306,8 +476,10 @@
       '<div id="drop-zone" class="drop-zone">' +
       '<div class="drop-icon">📥</div><b>Glissez vos fichiers ici</b>' +
       '<div class="subtle small">ou choisissez-les dans la mémoire du téléphone</div>' +
-      '<label class="btn btn-primary btn-sm" style="margin-top:10px">＋ Ajouter des fichiers' +
-      '<input type="file" id="manager-input" multiple hidden></label></div></div>' +
+      '<div class="row" style="justify-content:center;margin-top:10px"><label class="btn btn-primary btn-sm">＋ Ajouter des fichiers' +
+      '<input type="file" id="manager-input" multiple hidden></label>' +
+      '<label class="btn btn-ghost btn-sm">📷 Prendre une photo' +
+      '<input type="file" id="manager-camera-input" accept="image/*" capture="environment" hidden></label></div></div></div>' +
       (folders.length ? '<div class="section-title"><h2>Sous-dossiers · ' + folders.length + '</h2></div>' +
         '<div class="folder-grid">' + folders.map(function (f) {
           return '<article class="folder-card"><div class="folder-icon">📁</div>' +
@@ -347,16 +519,28 @@
       '<div class="card"><div class="card-head"><div><h2>Lancer une mission</h2>' +
       '<div class="subtle small">La prospection transmet au concepteur, qui transmet au producteur, qui transmet au contrôleur.</div></div></div>' +
       '<form id="pipeline-form" class="form-grid">' +
-      '<label class="field"><span>Entreprise</span><select name="company" id="pipeline-company"><option value="">Choisir</option>' +
+      '<label class="field"><span>Client (liste)</span><select name="client" id="pipeline-client"><option value="">À déduire du dossier</option>' +
+      (Store.clients() || []).map(function (c) {
+        return '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>';
+      }).join('') + '</select></label>' +
+      '<label class="field"><span>Dossier sur lequel travailler</span><select name="folder" id="pipeline-folder"><option value="">Mes fichiers (racine)</option>' +
+      (state.collabFolders || []).filter(function (f) { return f.id !== 'root'; }).map(function (f) {
+        return '<option value="' + esc(f.id) + '"' + (f.id === state.fileFolder ? ' selected' : '') + '>' + esc(f.name) + '</option>';
+      }).join('') + '</select></label>' +
+      '<label class="field"><span>Entreprise concernée</span><input name="companyName" id="pipeline-company-name" placeholder="Déduite du dossier ou saisie manuellement"></label>' +
+      '<label class="field"><span>Secteur d’activité</span><input name="sector" id="pipeline-sector" placeholder="Ex. Santé, éducation, commerce…"></label>' +
+      '<label class="field"><span>Entreprise existante</span><select name="company" id="pipeline-company"><option value="">Aucune</option>' +
       companies.map(function (c) { return '<option value="' + esc(c.name) + '"' + (company === c.name ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') +
       '</select></label>' +
       '<label class="field"><span>Projet</span><select name="project" id="pipeline-project"><option value="">Tous les projets</option>' +
       projects.map(function (p) { return '<option value="' + esc(p.name) + '">' + esc(p.name) + '</option>'; }).join('') +
       '</select></label>' +
-      '<label class="field full"><span>Sujet de la mission</span><input name="topic" required placeholder="Ex. Prospecter des pharmacies à Ouagadougou"></label>' +
-      '<label class="field full"><span>Recherches déjà collectées (ou laissées vides)</span><textarea name="research" rows="6" id="pipeline-research" placeholder="Collez ici les résultats de la fenêtre de recherche web…"></textarea></label>' +
+      '<label class="field full"><span>Sujet de la mission</span><input name="topic" id="pipeline-topic" required placeholder="Ex. Prospecter des pharmacies à Ouagadougou"></label>' +
+      '<label class="field full"><span>Recherches déjà collectées (ou laissées vides)</span><textarea name="research" rows="6" id="pipeline-research" placeholder="Le dossier est analysé automatiquement avant le lancement…"></textarea></label>' +
+      '<div id="collab-analysis" class="subtle small" style="grid-column:1/-1"></div>' +
       '<div class="field full"><label class="switch"><input type="checkbox" name="publish"> Autoriser la publication sur les réseaux connectés</label></div>' +
-      '<div class="row full" style="grid-column:1/-1"><button class="btn btn-ghost btn-sm" type="button" data-act="research-open">🔎 Ouvrir la fenêtre de recherche</button>' +
+      '<div class="row full" style="grid-column:1/-1;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" type="button" data-act="collab-analyze">✦ Analyser le dossier et remplir automatiquement</button>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-act="research-open">🔎 Ouvrir la fenêtre de recherche</button>' +
       '<button class="btn btn-primary" type="submit">⇄ Lancer les 4 agents</button></div></form></div>' +
       '<div class="stack"><div class="card"><div class="card-head"><h2>Chaîne de collaboration</h2>' +
       '<span class="chip ' + (providers.perplexity || providers.openai || providers.gemini || providers.anthropic ? 'green' : 'amber') + '">' +
@@ -401,6 +585,69 @@
       }).join('') + '</div>' : '<div class="empty">Aucune commande reçue. Le site public enverra ses demandes ici automatiquement.</div>');
   };
 
+  views.prospect = function () {
+    var P = window.TUSProspects || { list: function () { return []; } };
+    var bucketOf = P.bucketOf || function (p) { return (p && p.bucket) || 'online'; };
+    var all = P.list();
+    var counts = {
+      online: all.filter(function (p) { return bucketOf(p) === 'online'; }).length,
+      images: all.filter(function (p) { return bucketOf(p) === 'images'; }).length
+    };
+    var bucket = state.prospectBucket === 'images' ? 'images' : 'online';
+    var domains = P.domains ? P.domains() : [];
+    var filtered = all.filter(function (p) {
+      if (bucketOf(p) !== bucket) return false;
+      if (state.prospectDomain !== 'tous' && (p.domain || 'autre') !== state.prospectDomain) return false;
+      return state.prospectFilter === 'tous' ||
+        (state.prospectFilter === 'à contacter' && p.status !== 'contacté') ||
+        (state.prospectFilter === 'contacté' && p.status === 'contacté');
+    });
+    return '<div class="card"><div class="card-head"><div><h2>Prospection · ' +
+      (bucket === 'images' ? counts.images : counts.online) + ' fiche(s)</h2>' +
+      '<div class="subtle">' +
+      (bucket === 'images'
+        ? 'Fiches extraites automatiquement de vos images, classées par domaine avec les offres à proposer. Ce bac reste séparé des prospects trouvés en ligne.'
+        : 'Le robot de prospection, la messagerie du site et la saisie manuelle déposent ici leurs contacts.') +
+      '</div></div><div class="row" style="flex-wrap:wrap;gap:6px">' +
+      '<button class="btn btn-primary btn-sm" data-act="prospect-add-form">+ Ajouter</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="prospect-images-modal">🖼️ Analyser un lot d’images</button></div></div>' +
+      '<div class="prospect-tabs">' +
+      '<button class="btn ' + (bucket === 'online' ? 'btn-primary' : 'btn-ghost') + ' btn-sm" data-act="prospect-bucket" data-id="online">🌐 En ligne · ' + counts.online + '</button>' +
+      '<button class="btn ' + (bucket === 'images' ? 'btn-primary' : 'btn-ghost') + ' btn-sm" data-act="prospect-bucket" data-id="images">🖼️ Images · ' + counts.images + '</button></div>' +
+      '<div class="filters"><select id="prospect-filter"><option value="tous">Tous les statuts</option>' +
+      '<option value="à contacter"' + (state.prospectFilter === 'à contacter' ? ' selected' : '') + '>À contacter</option>' +
+      '<option value="contacté"' + (state.prospectFilter === 'contacté' ? ' selected' : '') + '>Contactés</option></select>' +
+      (bucket === 'images' ? '<select id="prospect-domain"><option value="tous">Tous les domaines</option>' +
+        domains.map(function (d) { return '<option value="' + esc(d.id) + '"' + (state.prospectDomain === d.id ? ' selected' : '') + '>' + esc(d.label) + '</option>'; }).join('') +
+        '</select>' : '<button class="btn btn-ghost btn-sm" data-act="msg-refresh">↻ Importer les messages du site</button>') +
+      '</div></div>' +
+      (filtered.length ? '<div class="prospect-grid">' + filtered.map(function (p) {
+        return '<article class="card prospect-card"><div class="spread"><b>' + esc(p.name || 'Prospect') + '</b>' +
+          '<span class="chip ' + (p.status === 'contacté' ? 'green' : 'red') + '">' + esc(p.status || 'à contacter') + '</span></div>' +
+          '<div class="subtle small">' + esc(p.source || 'Manuel') + ' · ' + date(p.createdAt || p.at) + '</div>' +
+          (bucket === 'images' ? '<div class="row" style="flex-wrap:wrap;gap:5px;margin-top:6px">' +
+            '<span class="chip blue">' + esc(p.domainLabel || P.domainById && P.domainById(p.domain || 'autre').label || 'Domaine') + '</span>' +
+            (p.confidence ? '<span class="chip gray">' + esc(p.confidence) + '</span>' : '') +
+            ((p.images || []).length ? '<span class="chip gray">' + (p.images || []).length + ' image(s)</span>' : '') + '</div>' +
+            ((p.offers || []).length ? '<div class="offer-chips subtle small" style="margin-top:6px">À proposer : ' +
+              p.offers.map(function (o) { return '<span class="chip">' + esc(o) + '</span>'; }).join(' ') + '</div>' : '') : '') +
+          '<div class="prospect-lines">' +
+          (p.phone ? '<div>📞 ' + esc(p.phone) + '</div>' : '') +
+          (p.email ? '<div>✉ ' + esc(p.email) + '</div>' : '') +
+          (p.city ? '<div>📍 ' + esc(p.city) + '</div>' : '') + '</div>' +
+          (p.need ? '<p class="subtle">Besoin : ' + esc(p.need) + '</p>' : '') +
+          '<div class="row" style="flex-wrap:wrap;gap:6px">' +
+          '<a class="btn btn-primary btn-sm" href="' + esc(P.whatsapp(p)) + '" target="_blank" rel="noopener">💬 WhatsApp</a>' +
+          '<button class="btn btn-ghost btn-sm" data-act="prospect-status" data-id="' + esc(p.id) + '">' +
+          (p.status === 'contacté' ? 'Rouvrir' : 'Marquer contacté') + '</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="prospect-client" data-id="' + esc(p.id) + '">Créer client</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="prospect-delete" data-id="' + esc(p.id) + '">✕</button>' +
+          '</div></article>';
+      }).join('') + '</div>' : '<div class="empty">' +
+      (bucket === 'images' ? 'Aucune fiche image. Importez un lot de photos pour extraire entreprises, contacts, adresses et offres à proposer.'
+        : 'Aucun prospect en ligne. Lancez le robot de prospection ou importez les messages du site.') + '</div>');
+  };
+
   views.content = function () {
     return '<div class="two-col">' +
       '<div class="card"><div class="card-head"><h2>Générateur de contenu</h2><span class="chip blue">Local · IA</span></div>' +
@@ -420,11 +667,37 @@
       }).join('') + '</div>' : '<div class="empty">Aucun contenu généré.</div>') + '</div>';
   };
 
+  function messagingCard() {
+    var M = window.TUSMessages || {};
+    var configured = !!(M.server && M.server());
+    var threads = state.msgThreads || [];
+    return '<div class="card msg-card"><div class="card-head"><div><h2>Messagerie du site</h2>' +
+      '<div class="subtle">Les visiteurs vous écrivent ici, avec photos, fichiers et vocaux. Vous répondez depuis l’application.</div></div>' +
+      '<span class="chip ' + (configured ? 'green' : 'gray') + '" id="msg-status">' + (configured ? 'Serveur configuré' : 'Serveur non configuré') + '</span></div>' +
+      '<div class="row" style="flex-wrap:wrap;gap:6px">' +
+      '<select id="msg-thread"><option value="">Toutes les conversations</option>' + threads.map(function (t) {
+        return '<option value="' + esc(t.id) + '"' + (state.msgThread === t.id ? ' selected' : '') + '>' +
+          esc((t.client && t.client.name) || t.id) + '</option>';
+      }).join('') + '</select>' +
+      '<button class="btn btn-ghost btn-sm" data-act="msg-refresh">↻ Actualiser</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="msg-perm" data-id="camera">🎥 Caméra</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="msg-perm" data-id="micro">🎤 Micro</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="msg-push">🔔 Notifications</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="msg-native-poll">📲 Notifications hors app</button></div>' +
+      '<div id="msg-inbox" class="msg-inbox"><div class="empty">Chargement des conversations…</div></div>' +
+      '<form id="msg-form" class="msg-form">' +
+      '<textarea id="msg-text" rows="2" placeholder="Répondre au client…"></textarea>' +
+      '<div class="row" style="flex-wrap:wrap;gap:6px">' +
+      '<label class="btn btn-ghost btn-sm">📎 <input id="msg-file" type="file" accept="image/*,audio/*,application/pdf,.doc,.docx,.txt" hidden></label>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-act="msg-record">● Enregistrer un vocal</button>' +
+      '<button class="btn btn-primary btn-sm" type="submit">Répondre</button></div></form></div>';
+  }
+
   views.social = function () {
     var list = (Store.db.social || []).filter(function (s) {
       return state.socialFilter === 'all' || s.status === state.socialFilter;
     });
-    return '<div class="section-title"><h2>' + list.length + ' publication(s)</h2>' +
+    return messagingCard() + '<div class="section-title"><h2>' + list.length + ' publication(s)</h2>' +
       '<div class="row"><button class="btn btn-ghost btn-sm" data-act="social-export">↓ Exporter CSV</button>' +
       '<button class="btn btn-primary btn-sm" data-act="social-add-form">+ Ajouter</button></div></div>' +
       '<div class="filters"><input id="social-search" placeholder="Rechercher un texte…">' +
@@ -460,20 +733,25 @@
       '<p class="subtle small">Le moteur local prépare un aperçu chaque jour. Pour une publication réelle, configurez le serveur sécurisé et connectez vos tokens sociaux dans les réglages. Aucun statut « publié » n’est affiché sans confirmation de l’API.</p>' +
       '<div class="three-col" style="margin-top:14px">' + R.robots.map(function (r) {
         var last = (info.robots || []).find(function (x) { return x.id === r.id; }) || {};
-        return '<div class="card robot-card"><div class="card-head"><h3><span aria-hidden="true">' + esc(r.icon) + '</span> ' + esc(r.name) + '</h3>' +
+        return '<div class="card robot-card"><div class="card-head"><h3>' + robotAvatar(r) + ' ' + esc(r.name) + '</h3>' +
           (last.lastRun ? '<span class="chip green">Exécuté</span>' : '<span class="chip gray">Local</span>') + '</div>' +
           '<p class="subtle small">' + esc(r.desc) + '</p>' +
           '<div class="row"><span class="chip ' + (r.enabled === false ? 'gray' : 'green') + '">' +
           (r.enabled === false ? 'Désactivé' : 'Quotidien · ' + (r.hour != null ? String(r.hour).padStart(2, '0') + 'h00' : '08h00')) + '</span>' +
           '<span class="chip blue">' + esc(r.provider || 'auto') + '</span></div>' +
-          '<div class="subtle small" style="margin-top:8px">Dernière exécution serveur : ' + esc(last.lastRun ? time(last.lastRun) + ' · ' + (last.lastResult || '') : 'aucune') + '</div>' +
-          '<div class="row" style="margin-top:12px"><button class="btn btn-ghost btn-sm" data-act="robot-local" data-id="' + esc(r.id) + '">Aperçu local</button>' +
+          '<div class="subtle small" style="margin-top:8px">Dossier IA : <b>' + esc(r.folderName || 'IA · ' + r.name) + '</b><br>' +
+          'Dernière exécution serveur : ' + esc(last.lastRun ? time(last.lastRun) + ' · ' + (last.lastResult || '') : 'aucune') + '</div>' +
+          '<div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-act="robot-edit" data-id="' + esc(r.id) + '">✎ Personnaliser</button>' +
+          '<button class="btn btn-ghost btn-sm" data-act="robot-folder" data-id="' + esc(r.id) + '">📂 Dossier IA</button></div>' +
+          '<div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-act="robot-local" data-id="' + esc(r.id) + '">Aperçu local</button>' +
           '<button class="btn btn-ghost btn-sm" data-act="robot-dry" data-id="' + esc(r.id) + '">Générer serveur</button>' +
           '<button class="btn btn-primary btn-sm" data-act="robot-run" data-id="' + esc(r.id) + '">Exécuter</button></div></div>';
       }).join('') + '</div>' +
       '<div class="section-title" style="margin-top:22px"><h2>Derniers résultats</h2></div>' +
       (history.length ? '<div class="list">' + history.map(function (h) {
-        return '<div class="list-row"><div class="row-main"><b>' + esc(h.name) + '</b><small>' + esc(String(h.text || h.error || '').slice(0, 160)) + '</small></div>' +
+        var robot = (window.TUSRobots && window.TUSRobots.robots || []).find(function (x) { return x.id === h.robotId; });
+        return '<div class="list-row">' + (robot ? robotAvatar(robot) : '<div class="file-icon">✺</div>') +
+          '<div class="row-main"><b>' + esc(h.name) + '</b><small>' + esc(String(h.text || h.error || '').slice(0, 160)) + '</small></div>' +
           '<span class="chip ' + (h.live ? 'green' : 'blue') + '">' + (h.live ? 'Temps réel' : 'Local') + '</span></div>';
       }).join('') + '</div>' : '<div class="empty">Aucun résultat pour le moment.</div>');
   };
@@ -523,16 +801,27 @@
   views.academy = function () {
     var ac = C.academy || {};
     var modules = ac.modules || [];
+    var offerings = ac.offerings || [];
     var trainings = (window.TU_CATALOGUE && window.TU_CATALOGUE.products || []).filter(function (p) { return p.category === 'academie'; });
-    return '<div class="auto-card card"><div class="card-head"><div><h2>' + esc(ac.eyebrow || 'Touch Unique Académie') + '</h2>' +
+    return '<div class="academy-banner"><img src="academie-couverture.webp" alt="Couverture Touch Unique Académie"></div>' +
+      '<div class="auto-card card"><div class="card-head"><div><h2>' + esc(ac.eyebrow || 'Touch Unique Académie') + '</h2>' +
       '<div class="subtle">Apprenez à créer, puis à automatiser votre création.</div></div><span class="chip red">Formations</span></div>' +
       '<div class="row">' + modules.map(function (m) { return '<span class="chip blue">' + esc(m) + '</span>'; }).join('') + '</div></div>' +
-      '<div class="section-title"><h2>Modules disponibles</h2></div><div class="three-col">' +
-      trainings.map(function (t) {
-        return '<article class="card"><div class="spread"><b>' + esc(t.name) + '</b><span class="chip blue">' + money(t.price) + '</span></div>' +
-          '<p class="subtle">' + esc(t.short) + '</p><div class="subtle small">' + esc(t.delay) + ' · ' + esc(t.unit) + '</div>' +
-          '<button class="btn btn-ghost btn-sm" style="margin-top:12px" data-act="academy-open" data-id="' + esc(t.id) + '">Voir le programme</button></article>';
-      }).join('') + '</div>';
+      '<div class="section-title"><h2>Formations proposées</h2><span class="subtle small">Prix indicatifs · devis gratuit</span></div>' +
+      '<div class="three-col">' + offerings.map(function (t) {
+        return '<article class="card academy-offer"><div class="spread"><b>' + esc(t.name) + '</b><span class="chip red">' + money(t.price) + '</span></div>' +
+          '<p class="subtle">' + esc(t.short) + '</p>' +
+          '<div class="row" style="gap:6px"><span class="chip blue">' + esc(t.duration) + '</span><span class="chip gray">' + esc(t.level) + '</span></div>' +
+          '<ul class="academy-list">' + (t.details || []).map(function (d) { return '<li>' + esc(d) + '</li>'; }).join('') + '</ul>' +
+          '<div class="row"><button class="btn btn-ghost btn-sm" data-act="academy-open" data-id="' + esc(t.id) + '">Voir le programme</button>' +
+          '<a class="btn btn-primary btn-sm" href="' + esc(waLink('Bonjour Touch Unique, je veux m’inscrire à ' + t.name)) + '" target="_blank" rel="noopener">S’inscrire</a></div></article>';
+      }).join('') + '</div>' +
+      (trainings.length ? '<div class="section-title"><h2>Formations du catalogue</h2></div><div class="three-col">' +
+        trainings.map(function (t) {
+          return '<article class="card"><div class="spread"><b>' + esc(t.name) + '</b><span class="chip blue">' + money(t.price) + '</span></div>' +
+            '<p class="subtle">' + esc(t.short) + '</p><div class="subtle small">' + esc(t.delay) + ' · ' + esc(t.unit) + '</div>' +
+            '<button class="btn btn-ghost btn-sm" style="margin-top:12px" data-act="academy-open" data-id="' + esc(t.id) + '">Voir le programme</button></article>';
+        }).join('') + '</div>' : '');
   };
 
   views.settings = function () {
@@ -556,6 +845,32 @@
       '<div class="card"><div class="card-head"><h2>Compte local</h2><span class="chip green">' +
       esc((Accounts && Accounts.current() && Accounts.current().email) || 'Session active') + '</span></div>' +
       '<div class="row"><button class="btn btn-ghost btn-sm" data-act="account-logout">Verrouiller l’application</button></div></div>' +
+      '<div class="card"><div class="card-head"><h2>Connexion & synchronisation QR</h2><span class="chip green">PC ↔ Android</span></div>' +
+      '<div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn btn-ghost btn-sm" data-act="qr-show">Afficher mon code</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="qr-scan">Scanner une photo</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="qr-paste">Saisir un code</button></div>' +
+      '<div class="qr-panel" id="qr-settings-panel" hidden>' +
+      '<img class="qr-image" id="qr-settings-image" alt="Code QR de synchronisation" hidden>' +
+      '<label class="field full"><span>Photo du code QR (caméra sur Android)</span><input class="qr-file" id="qr-settings-file" type="file" accept="image/*" capture="environment"></label>' +
+      '<label class="field full"><span>Code QR (texte)</span><textarea class="qr-text" id="qr-settings-text" rows="3" placeholder="Collez le code de l’autre appareil"></textarea></label>' +
+      '<div class="row"><button class="btn btn-primary btn-sm" data-act="qr-apply">Connecter et synchroniser</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="qr-close">Fermer</button></div></div>' +
+      '<p class="subtle small">Le code QR contient votre compte et une copie compacte de vos données : traitez-le comme un secret et ne le montrez qu’à vos propres appareils.</p></div>' +
+      '<div class="card"><div class="card-head"><h2>Mises à jour en ligne</h2><span class="chip blue" id="updates-platform">—</span></div>' +
+      '<div class="subtle small" id="updates-status">Vérification du canal de mise à jour…</div>' +
+      '<form id="updates-form" class="form-grid" style="margin-top:10px">' +
+      '<label class="field full"><span>URL du manifeste de mise à jour</span><input name="url" id="updates-url" type="url" placeholder="https://…/manifest.json"></label>' +
+      '<label class="field full"><label class="switch"><input type="checkbox" name="auto" id="updates-auto" checked> Vérifier automatiquement au démarrage</label></label>' +
+      '<div class="row" style="grid-column:1/-1"><button class="btn btn-ghost btn-sm" type="button" data-act="updates-check">↻ Vérifier et installer</button>' +
+      '<button class="btn btn-primary btn-sm" type="submit">Enregistrer</button></div></form>' +
+      '<p class="subtle small">Les mises à jour sont téléchargées et vérifiées par empreinte SHA-256. Aucune réinstallation n’est nécessaire. Le paquet n’est pas accessible depuis le site public.</p></div>' +
+      '<div class="card"><div class="card-head"><h2>Autorisations de l’appareil</h2><span class="chip ' +
+      (state.nativePerms && state.nativePerms.android ? 'green' : 'gray') + '">' +
+      (state.nativePerms && state.nativePerms.android ? 'Android' : 'Navigateur') + '</span></div>' +
+      '<div id="native-perms" class="row" style="flex-wrap:wrap;gap:6px"></div>' +
+      '<div class="row" style="margin-top:10px"><button class="btn btn-ghost btn-sm" data-act="native-permissions">Autoriser fichiers, photos et caméra</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="native-overlay">Autoriser la superposition</button></div>' +
+      '<p class="subtle small">Ces autorisations servent à importer des fichiers, prendre une photo et afficher l’assistant par-dessus les autres écrans. Sur Android, la superposition s’active dans les réglages système.</p></div>' +
       '<div class="card"><div class="card-head"><h2>Serveur sécurisé</h2><span class="chip blue">Clés côté serveur</span></div>' +
       '<form id="proxy-form" class="form-grid">' +
       '<label class="field full"><span>URL du serveur sécurisé</span><input name="url" type="url" placeholder="https://mon-serveur.onrender.com" value="' + esc(Cloud ? Cloud.url() : (window.TUSAI ? window.TUSAI.getURL() : '')) + '"></label>' +
@@ -566,11 +881,22 @@
       '<button class="btn btn-ghost btn-sm" data-act="robots-config">Configurer les robots</button>' +
       '<button class="btn btn-ghost btn-sm" data-act="agents-config">Configurer les agents</button></div>' +
       '<p class="subtle small">Les clés saisies ci-dessous sont envoyées au serveur puis chiffrées dans son coffre. Elles ne sont jamais renvoyées à l’application.</p></div>' +
+      '<div class="card"><div class="card-head"><h2>Connexions automatiques</h2><span class="chip red">Un clic</span></div>' +
+      '<p class="subtle small">Google Drive, Facebook, Instagram, LinkedIn et X s’autorisent depuis l’application. Les jetons restent chiffrés sur le serveur.</p>' +
+      '<div id="oauth-list" class="stack"></div>' +
+      (Cloud ? '<details style="margin-top:12px"><summary class="subtle">Configurer les applications OAuth sur le serveur</summary>' +
+        '<form id="oauth-config-form" class="form-grid" style="margin-top:10px">' +
+        Cloud.OAUTH_FIELDS.map(function (f) {
+          return '<label class="field"><span>' + esc(f.label) + '</span><input type="password" name="' + esc(f.id) + '" autocomplete="off" placeholder="Déjà enregistré ou variable d’environnement"></label>';
+        }).join('') +
+        '<button class="btn btn-ghost" type="submit" style="grid-column:1/-1">Enregistrer la configuration OAuth</button></form></details>' : '') +
+      '</div>' +
       '<div class="card"><div class="card-head"><h2>Comptes IA</h2><span class="chip amber">Saisie différée possible</span></div>' +
       '<div class="account-grid">' + (Cloud ? Cloud.PROVIDERS.map(function (p) {
         var on = !!(state.cloudInfo && state.cloudInfo.ai && state.cloudInfo.ai[p.id]);
         return '<form class="account-row" data-account="' + esc(p.id) + '">' +
-          '<div><b>' + esc(p.label) + '</b><div class="subtle small">' + (on ? 'Connecté · prêt à exécuter ses tâches' : 'Non connecté') + '</div></div>' +
+          '<div><b>' + esc(p.label) + '</b><div class="subtle small">' + (on ? 'Connecté · prêt à exécuter ses tâches' : 'Non connecté') + '</div>' +
+          (safeExternal(p.url, PROVIDER_HOSTS) ? '<a class="link-btn" href="' + safeExternal(p.url, PROVIDER_HOSTS) + '" target="_blank" rel="noopener noreferrer">Obtenir une clé ↗</a>' : '') + '</div>' +
           '<div class="row"><input type="password" name="value" placeholder="' + esc(p.hint) + '" autocomplete="off" aria-label="Clé ' + esc(p.name) + '">' +
           '<button class="btn btn-ghost btn-sm" type="submit">' + (on ? 'Remplacer' : 'Connecter') + '</button>' +
           (on ? '<button class="btn btn-ghost btn-sm" type="button" data-act="account-remove" data-id="' + esc(p.id) + '">Retirer</button>' : '') +
@@ -830,10 +1156,18 @@
       if (!box) return;
       if (!s.configured) { box.innerHTML = 'Serveur non configuré — moteur local actif.'; return; }
       if (!s.ok) { box.innerHTML = 'Serveur injoignable : ' + esc(s.error || 'erreur'); return; }
-      var ai = Object.keys(s.ai || {}).filter(function (k) { return s.ai[k]; }).join(', ') || 'aucune';
-      var social = Object.keys(s.social || {}).filter(function (k) { return s.social[k]; }).join(', ') || 'aucun';
+      var aiSrc = (s.ai && typeof s.ai === 'object' && !Array.isArray(s.ai)) ? s.ai : {};
+      var socialSrc = (s.social && typeof s.social === 'object' && !Array.isArray(s.social)) ? s.social : {};
+      /* Clés serveur : filtrées puis échappées avant toute injection HTML. */
+      var names = function (src) {
+        return Object.keys(src).filter(function (k) {
+          return !!src[k] && /^[a-z0-9_-]{1,40}$/i.test(k);
+        }).map(esc).join(', ');
+      };
+      var ai = names(aiSrc) || 'aucune';
+      var social = names(socialSrc) || 'aucun';
       var drive = s.google && s.google.connected ? ' · Drive connecté' : '';
-      box.innerHTML = 'IA : ' + ai + ' · Réseaux : ' + social + drive + '.';
+      box.textContent = 'IA : ' + ai + ' · Réseaux : ' + social + drive + '.';
     }
     if (state.cloudInfo) { paint(state.cloudInfo); return; }
     if (window.TUSAI) window.TUSAI.status().then(paint);
@@ -895,7 +1229,12 @@
       var btn = $('button', e.target);
       if (btn) btn.disabled = true;
       assistantAsk(text).then(function (res) {
-        pushMsg('bot', res.answer + '\n\n— Sources : ' + res.sources.join(', '));
+        var footer = '\n\n— Sources : ' + res.sources.join(', ');
+        /* Indicateur informatif seulement : le quota est appliqué par le serveur. */
+        if (res.trials && res.trials.limit) {
+          footer += ' · Indicateur local : ' + (res.trials.remaining || 0) + '/' + res.trials.limit + ' essais aujourd’hui (limite effective côté serveur)';
+        }
+        pushMsg('bot', res.answer + footer);
         refreshConnections();
       }).catch(function (err) {
         pushMsg('bot', 'Erreur : ' + err.message);
@@ -911,6 +1250,28 @@
     }
     $('#ai-fab').addEventListener('click', function () { toggle(); });
     $('#ai-close').addEventListener('click', function () { toggle(false); });
+  }
+
+  function initNetworkMeter() {
+    var N = window.TUSNetwork;
+    if (!N) return;
+    var meter = $('#net-meter'), led = $('#net-led'), label = $('#net-label'),
+      detail = $('#net-detail'), button = $('#net-toggle'), sync = $('#sync-state');
+    function paint(s) {
+      if (meter) meter.classList.toggle('online', !!s.online);
+      if (label) label.textContent = s.enabled ? (s.online ? 'Connecté' : 'Hors ligne') : 'Désactivé';
+      if (detail) detail.textContent = N.format(s);
+      if (button) {
+        button.textContent = s.enabled ? 'ACTIF' : 'OFF';
+        button.setAttribute('aria-pressed', String(!!s.enabled));
+        button.title = s.enabled ? 'Désactiver la connexion réseau' : 'Activer la connexion réseau';
+      }
+      if (sync && !s.enabled) sync.textContent = 'Connexion réseau désactivée';
+    }
+    N.onChange(paint);
+    paint(N.status());
+    if (button) button.addEventListener('click', function () { N.toggle(); });
+    N.start();
   }
 
   /* ---------- Robots ---------- */
@@ -1001,7 +1362,9 @@
       'Les informations extraites peuvent lancer directement une mission complète.</p>' +
       '<form id="media-form" class="form-grid">' +
       '<label class="field full"><span>Fichier à analyser</span>' +
-      '<input type="file" name="file" required accept="image/*,audio/*,video/*,.pdf,.txt,.md,.csv,.json,.xml,.html,.docx"></label>' +
+      '<input type="file" name="file" accept="image/*,audio/*,video/*,.pdf,.txt,.md,.csv,.json,.xml,.html,.docx"></label>' +
+      '<label class="field full"><span>Ou prendre une photo</span>' +
+      '<input type="file" name="camera" accept="image/*" capture="environment"></label>' +
       '<div class="field full" id="media-preview" class="media-preview" hidden></div>' +
       '<label class="field"><span>Entreprise</span><select name="company">' +
       '<option value="">— Choisir —</option>' +
@@ -1015,11 +1378,9 @@
       '<div class="field full"><label class="switch"><input type="checkbox" name="mission"> Créer et exécuter une mission complète à partir des informations extraites</label></div>' +
       '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
       '<button class="btn btn-primary" type="submit">✦ Analyser le média</button></div></form>');
-    var input = document.querySelector('#media-form [name="file"]');
-    if (input) input.addEventListener('change', function () {
+    function showMediaPreview(file) {
       var box = $('#media-preview');
       if (!box) return;
-      var file = input.files && input.files[0];
       if (!file) { box.hidden = true; return; }
       box.hidden = false;
       box.innerHTML = '';
@@ -1033,6 +1394,11 @@
       info.className = 'subtle small';
       info.textContent = (file.name || 'fichier') + ' · ' + Math.round(file.size / 1024) + ' Ko · ' + (file.type || 'type inconnu');
       box.appendChild(info);
+    }
+    $$('#media-form input[type="file"]').forEach(function (field) {
+      field.addEventListener('change', function () {
+        showMediaPreview(field.files && field.files[0]);
+      });
     });
   }
 
@@ -1061,7 +1427,9 @@
     if (!Cloud || !Cloud.configured()) return toast('Serveur non configuré.', true);
     var fd = new FormData(form);
     var file = fd.get('file');
-    if (!file || !file.size) return toast('Choisissez un fichier', true);
+    var camera = fd.get('camera');
+    if ((!file || !file.size) && camera && camera.size) file = camera;
+    if (!file || !file.size) return toast('Choisissez un fichier ou prenez une photo', true);
     var extra = {
       company: fd.get('company') || '', project: fd.get('project') || '',
       question: fd.get('question') || '', mission: !!fd.get('mission')
@@ -1308,6 +1676,8 @@
   function bindManager() {
     var input = $('#manager-input');
     if (input) input.addEventListener('change', function () { managerUpload(input.files); input.value = ''; });
+    var camera = $('#manager-camera-input');
+    if (camera) camera.addEventListener('change', function () { managerUpload(camera.files); camera.value = ''; });
     var zone = $('#drop-zone');
     if (zone) {
       ['dragenter', 'dragover'].forEach(function (ev) {
@@ -1335,12 +1705,54 @@
       URL.revokeObjectURL(a.href);
     }).catch(function (e) { toast(e.message, true); });
   }
+  function collabAnalyze() {
+    var A = window.TUSCollabAuto;
+    if (!A) return toast('Module d’analyse indisponible.', true);
+    var folder = $('#pipeline-folder');
+    toast('Analyse du dossier et des images en cours…');
+    A.analyze(folder ? folder.value : '').then(function (r) {
+      if (r.error) throw new Error(r.error);
+      state.collabEvidence = r;
+      var set = function (sel, value) { var el = $(sel); if (el && value) el.value = value; };
+      set('#pipeline-company-name', r.company);
+      set('#pipeline-sector', r.sector);
+      set('#pipeline-topic', r.topic);
+      set('#pipeline-client', r.client);
+      if (!$('#pipeline-research').value.trim()) set('#pipeline-research', r.research);
+      var box = $('#collab-analysis');
+      if (box) box.textContent = 'Analyse terminée : ' + r.files + ' fichier(s), ' + r.images + ' image(s), entreprise « ' +
+        (r.company || 'non identifiée') + ' », secteur « ' + (r.sector || 'non identifié') + ' ». Vérifiez les champs proposés.';
+      toast('Champs remplis automatiquement à partir du dossier');
+    }).catch(function (e) { toast(e.message || 'Analyse impossible', true); });
+  }
+
   function runPipeline(form) {
     if (!Cloud || !Cloud.configured()) return toast('Configurez le serveur sécurisé dans les réglages.', true);
     var fd = new FormData(form);
+    var client = (Store.clients() || []).find(function (c) { return c.id === fd.get('client'); }) || {};
+    var company = String(fd.get('companyName') || fd.get('company') || client.name || '').trim();
+    var sector = String(fd.get('sector') || '').trim();
+    var folderId = String(fd.get('folder') || '');
+    var folder = (state.collabFolders || []).find(function (f) { return f.id === folderId; }) || {};
+    var evidence = state.collabEvidence || {};
+    if (company && !(Store.companies() || []).some(function (c) { return String(c.name).toLowerCase() === company.toLowerCase(); })) {
+      Store.add('companies', {
+        name: company, sector: sector || evidence.sector || '', city: '',
+        contact: client.name || '', phone: client.phone || '', email: client.email || ''
+      });
+    }
+    var prefix = [
+      client.name ? 'Client : ' + client.name : '',
+      company ? 'Entreprise : ' + company : '',
+      sector ? 'Secteur : ' + sector : '',
+      folder.name ? 'Dossier : ' + folder.name : '',
+      evidence.research || ''
+    ].filter(Boolean).join('\n');
     var payload = {
-      company: fd.get('company') || '', project: fd.get('project') || '',
-      topic: fd.get('topic') || '', research: fd.get('research') || '', publish: !!fd.get('publish')
+      company: company, project: fd.get('project') || '',
+      topic: fd.get('topic') || '',
+      research: (prefix ? prefix + '\n\n' : '') + (fd.get('research') || ''),
+      publish: !!fd.get('publish')
     };
     toast('Les quatre agents travaillent sur le dossier…');
     Cloud.runPipeline(payload).then(function (res) {
@@ -1405,13 +1817,55 @@
       if (form) form.dataset.count = String(agents.length);
     }).catch(function (e) { toast(e.message, true); });
   }
+  function robotEdit(id) {
+    var R = window.TUSRobots;
+    if (!R) return;
+    var r = R.profile(id);
+    if (!r) return;
+    var icons = R.ICONS || [];
+    openModal('<h3>Personnaliser « ' + esc(r.name) + ' »</h3>' +
+      '<p class="subtle small">Le nom, l’icône 3D et le dossier de cette IA sont propres à ce robot. Les résultats générés y seront classés automatiquement.</p>' +
+      '<form id="robot-profile-form" class="form-grid">' +
+      '<label class="field full"><span>Nom affiché</span><input name="name" maxlength="60" required value="' + esc(r.name) + '"></label>' +
+      '<div class="field full"><span>Icône 3D</span><div class="icon-picker">' + icons.map(function (it) {
+        return '<label class="icon-choice' + (it.icon === r.icon ? ' selected' : '') + '"><input type="radio" name="icon" value="' + esc(it.icon) + '"' + (it.icon === r.icon ? ' checked' : '') + '>' +
+          '<span class="robot-avatar ' + esc(r.color || 'blue') + '">' + esc(it.icon) + '</span><small>' + esc(it.label) + '</small></label>';
+      }).join('') + '</div></div>' +
+      '<label class="field full"><span>Couleur de l’icône</span><select name="color">' +
+      (R.COLORS || ['red', 'blue', 'green', 'violet', 'amber', 'cyan']).map(function (c) {
+        return '<option value="' + esc(c) + '"' + (c === r.color ? ' selected' : '') + '>' + esc(c) + '</option>';
+      }).join('') + '</select></label>' +
+      '<div class="field full"><span>Dossier dédié</span><div class="ai-folder-line">' + robotAvatar(r, true) +
+      '<div><b>' + esc(r.folderName) + '</b><div class="subtle small">Créé dans le gestionnaire de fichiers de cet appareil.</div></div></div></div>' +
+      '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button>' +
+      '<button class="btn btn-primary" type="submit">Enregistrer</button></div></form>');
+    var form = $('#robot-profile-form');
+    if (form) form.dataset.id = id;
+  }
+  function robotFolder(id) {
+    var R = window.TUSRobots;
+    if (!R) return;
+    R.ensureFolders().then(function () {
+      var r = R.profile(id);
+      if (!r || !r.folderId) return toast('Dossier indisponible sur cet appareil.', true);
+      state.managerFolder = r.folderId;
+      go('manager');
+    });
+  }
   function robotsConfigModal() {
     if (!Cloud || !Cloud.configured()) return toast('Configurez le serveur sécurisé.', true);
     Cloud.robotsConfig().then(function (res) {
       var robots = res.robots || [];
       openModal('<h3>Configuration des robots quotidiens</h3><p class="subtle small">Chaque robot a son heure, son fournisseur et sa consigne. Le serveur exécute ceux qui sont dus.</p>' +
         '<form id="robots-config-form" class="form-grid">' + robots.map(function (r, i) {
+          var local = window.TUSRobots ? window.TUSRobots.profile(r.id) || {} : {};
+          var icons = (window.TUSRobots && window.TUSRobots.ICONS) || [];
           return '<div class="agent-edit" style="grid-column:1/-1"><b>' + esc(r.icon || '✺') + ' ' + esc(r.name) + '</b>' +
+            '<div class="row"><label class="field"><span>Nom personnalisé</span><input name="name-' + i + '" maxlength="60" value="' + esc(local.custom ? local.name : (r.name || '')) + '"></label>' +
+            '<label class="field"><span>Icône 3D</span><select name="icon-' + i + '">' +
+            (icons.length ? icons : [{ icon: r.icon || '🤖', label: 'Actuelle' }]).map(function (it) {
+              return '<option value="' + esc(it.icon) + '"' + (it.icon === (local.icon || r.icon) ? ' selected' : '') + '>' + esc(it.icon + ' ' + it.label) + '</option>';
+            }).join('') + '</select></label></div>' +
             '<div class="row"><label class="field"><span>Actif</span><select name="enabled-' + i + '"><option value="1"' + (r.enabled !== false ? ' selected' : '') + '>Oui</option><option value="0"' + (r.enabled === false ? ' selected' : '') + '>Non</option></select></label>' +
             '<label class="field"><span>Heure</span><input type="number" name="hour-' + i + '" value="' + Number(r.hour || 8) + '" min="0" max="23"></label>' +
             '<label class="field"><span>Fournisseur</span><select name="provider-' + i + '">' +
@@ -1435,16 +1889,21 @@
     if (!Cloud) return Promise.resolve();
     if (!Cloud.configured()) {
       state.cloudInfo = null;
+      state.oauthInfo = null;
       refreshConnections();
       if (page === 'settings') go('settings');
       return Promise.resolve();
     }
-    return Promise.all([Cloud.status(), Accounts && Accounts.available() ? Cloud.googleStatus().catch(function () { return null; }) : Promise.resolve(null)])
-      .then(function (arr) {
-        state.cloudInfo = arr[0];
-        refreshConnections();
-        if (page === 'settings' || page === 'collab' || page === 'robots') go(page);
-      });
+    return Promise.all([
+      Cloud.status(),
+      Accounts && Accounts.available() ? Cloud.googleStatus().catch(function () { return null; }) : Promise.resolve(null),
+      Cloud.oauthProviders().catch(function () { return null; })
+    ]).then(function (arr) {
+      state.cloudInfo = arr[0];
+      state.oauthInfo = (arr[2] && arr[2].providers) || (arr[0] && arr[0].oauth) || null;
+      refreshConnections();
+      if (page === 'settings' || page === 'collab' || page === 'robots') go(page);
+    });
   }
   function googleSync() {
     if (!Cloud) return;
@@ -1471,7 +1930,7 @@
   function googleRestore(id) {
     confirmAction('Restaurer cette sauvegarde ?', 'Les données locales actuelles seront remplacées par la version choisie.', function () {
       Cloud.googleRestore(id).then(function (data) {
-        Store.importData(JSON.stringify(data));
+        Store.importData(JSON.stringify(data), { confirmed: true });
         toast('Sauvegarde restaurée');
         go('home');
       }).catch(function (e) { toast(e.message, true); });
@@ -1479,9 +1938,228 @@
   }
 
   /* ---------- Événements ---------- */
+  /* ---------- Messagerie du site et prospects ---------- */
+  function msgAttachment(m) {
+    if (!m.attachment) return '';
+    var M = window.TUSMessages || {};
+    var label = m.kind === 'voice' ? '▶ Message vocal' : m.kind === 'photo' ? '🖼️ Photo' : '📎 Fichier';
+    var raw = m.attachment.url;
+    var href = safeAttachment(M.urlFor ? M.urlFor(raw) : raw);
+    if (!href) return '<span class="subtle small">Pièce jointe indisponible</span>';
+    return '<a href="' + href + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+  }
+
+  function refreshInbox(quiet) {
+    var M = window.TUSMessages;
+    var box = $('#msg-inbox');
+    if (!M || !M.server()) {
+      if (box) box.innerHTML = '<div class="empty">Configurez l’URL du serveur dans les réglages pour recevoir les messages du site.</div>';
+      return Promise.resolve(false);
+    }
+    return M.list(state.msgThread || '', '', true).then(function (res) {
+      var before = window.TUSProspects ? window.TUSProspects.list().length : 0;
+      state.msgThreads = res.threads || [];
+      var threads = state.msgThreads;
+      if (threads.length && (!state.msgThread || !threads.some(function (t) { return t.id === state.msgThread; }))) {
+        state.msgThread = threads[0].id;
+      }
+      var select = $('#msg-thread');
+      if (select) {
+        select.innerHTML = '<option value="">Toutes les conversations</option>' + threads.map(function (t) {
+          return '<option value="' + esc(t.id) + '">' + esc((t.client && t.client.name) || t.id) + '</option>';
+        }).join('');
+        select.value = state.msgThread || '';
+      }
+      var messages = [];
+      threads.forEach(function (t) {
+        if (state.msgThread && t.id !== state.msgThread) return;
+        (t.messages || []).forEach(function (m) { messages.push(Object.assign({ thread: t.id, client: t.client }, m)); });
+        (t.messages || []).forEach(function (m) {
+          if (m.direction !== 'out' && window.TUSProspects) window.TUSProspects.fromMessage(m, t.id);
+        });
+      });
+      messages.sort(function (a, b) { return String(a.at).localeCompare(String(b.at)); });
+      if (box) {
+        box.innerHTML = messages.length ? messages.slice(-120).map(function (m) {
+          var mine = m.direction === 'out';
+          return '<div class="msg-item ' + (mine ? 'out' : 'in') + '">' +
+            '<div class="msg-meta">' + esc(m.name || (mine ? 'Vous' : (m.client && m.client.name) || 'Visiteur')) +
+            ' · ' + esc((m.at || '').replace('T', ' ').slice(0, 16)) + '</div>' +
+            (m.text ? '<div class="msg-text">' + nl(m.text) + '</div>' : '') + msgAttachment(m) + '</div>';
+        }).join('') : '<div class="empty">Aucun message pour le moment. Les messages du site apparaîtront ici.</div>';
+      }
+      var badge = $('#msg-status');
+      if (badge) { badge.textContent = messages.length + ' message(s) · ' + threads.length + ' conversation(s)'; badge.className = 'chip green'; }
+      var after = window.TUSProspects ? window.TUSProspects.list().length : 0;
+      if (after > before && page === 'prospect') go('prospect');
+      return true;
+    }).catch(function (e) {
+      if (box && !quiet) box.innerHTML = '<div class="empty">Serveur indisponible : ' + esc(e.message) + '</div>';
+      var badge = $('#msg-status');
+      if (badge) { badge.textContent = e.message; badge.className = 'chip red'; }
+      return false;
+    });
+  }
+
+  function msgSend(text, file, kind) {
+    var M = window.TUSMessages;
+    if (!M || !M.server()) return toast('Serveur non configuré dans les réglages.', true);
+    if (!state.msgThread) return toast('Choisissez une conversation dans la liste.', true);
+    var badge = $('#msg-status');
+    if (badge) badge.textContent = 'Envoi du message en cours…';
+    return M.send({ thread: state.msgThread, admin: true, text: text || '', file: file, kind: kind }).then(function (res) {
+      toast('Réponse enregistrée sur le serveur.');
+      return refreshInbox(true);
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  function startNativePollingSilent() {
+    var bridge = nativeBridge();
+    if (!bridge || !bridge.configureMessages || !window.TUSMessages || !window.TUSMessages.server()) return;
+    try {
+      bridge.configureMessages(window.TUSMessages.server(), window.TUSMessages.apiKey());
+      bridge.startMessagePolling();
+    } catch (e) { /* configuration incomplète */ }
+  }
+
+  function startNativePolling() {
+    var bridge = nativeBridge();
+    if (!bridge || !bridge.configureMessages) return toast('Notifications hors application disponibles sur Android.', true);
+    try {
+      bridge.configureMessages(window.TUSMessages.server(), window.TUSMessages.apiKey());
+      bridge.startMessagePolling();
+      toast('Notifications activées même quand l’application est fermée.');
+    } catch (e) { toast(e.message, true); }
+  }
+
+  function prospectForm() {
+    openModal('<h3>Ajouter un prospect</h3><form id="prospect-form" class="form-grid">' +
+      '<label class="field full"><span>Nom / entreprise</span><input name="name" required></label>' +
+      '<label class="field"><span>Téléphone</span><input name="phone" placeholder="+226 …"></label>' +
+      '<label class="field"><span>E-mail</span><input name="email" type="email"></label>' +
+      '<label class="field"><span>Ville</span><input name="city"></label>' +
+      '<label class="field"><span>Source</span><input name="source" value="Manuel"></label>' +
+      '<label class="field full"><span>Besoin identifié</span><textarea name="need" rows="3"></textarea></label>' +
+      '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-primary" type="submit">Enregistrer</button>' +
+      '<button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button></div></form>');
+  }
+
+  function prospectImagesModal() {
+    var P = window.TUSProspects || { domains: function () { return []; } };
+    var opts = (P.domains ? P.domains() : []).map(function (d) {
+      return '<option value="' + esc(d.id) + '">' + esc(d.label) + '</option>';
+    }).join('');
+    openModal('<h3>🖼️ Analyser un lot d’images</h3>' +
+      '<form id="prospect-images-form" class="form-grid">' +
+      '<label class="field full"><span>Photos, captures ou documents image (plusieurs possibles)</span>' +
+      '<input name="files" type="file" accept="image/*" multiple required></label>' +
+      '<label class="field full"><span>Photo directe (appareil photo)</span>' +
+      '<input name="camera" type="file" accept="image/*" capture="environment"></label>' +
+      '<label class="field full"><span>Domaine à forcer (facultatif)</span>' +
+      '<select name="domain"><option value="auto">Détection automatique</option>' + opts + '</select></label>' +
+      '<div class="subtle small" style="grid-column:1/-1">Les fiches issues des images restent dans le bac « Images », séparé des prospects trouvés en ligne. ' +
+      'L’IA distante est utilisée si le serveur sécurisé est configuré ; sinon une analyse locale indicative est enregistrée avec une confiance faible.</div>' +
+      '<div class="modal-actions" style="grid-column:1/-1"><button class="btn btn-primary" type="submit">Lancer l’analyse du lot</button>' +
+      '<button class="btn btn-ghost" type="button" data-act="modal-close">Annuler</button></div></form>');
+  }
+
+  function localImageReport(file, domain) {
+    var base = String(file.name || 'image').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+    var P = window.TUSProspects || {};
+    var cls = P.domainById && domain && domain !== 'auto' ? P.domainById(domain) : (P.classify ? P.classify(base) : { id: 'autre', label: 'Autre domaine', offers: [] });
+    return {
+      name: file.name || 'image',
+      summary: 'Image « ' + base + ' » importée pour analyse. Lecture différée : configurez le serveur IA pour extraire les textes visibles.',
+      details: ['Fichier local : ' + base],
+      entities: { names: [base] },
+      suggestedMission: '',
+      confidence: 'faible',
+      local: true
+    };
+  }
+
+  function prospectImageAnalyze(form) {
+    var P = window.TUSProspects;
+    if (!P) return toast('Module Prospect indisponible.', true);
+    var fd = new FormData(form);
+    var files = Array.prototype.slice.call(fd.getAll('files') || []).filter(function (f) { return f && f.size; });
+    var camera = fd.get('camera');
+    if (camera && camera.size) files.push(camera);
+    if (!files.length) return toast('Choisissez au moins une image.', true);
+    if (files.length > 80) files = files.slice(0, 80);
+    var forced = String(fd.get('domain') || 'auto');
+    var online = !!(Cloud && Cloud.configured());
+    openModal('<h3>Analyse du lot en cours…</h3>' +
+      '<div class="subtle small">Mode ' + (online ? 'IA distante' : 'local indicatif') + ' · ' + files.length + ' image(s)</div>' +
+      '<div class="prospect-progress"><span id="prospect-progress-bar" style="width:0%"></span></div>' +
+      '<div id="prospect-progress" class="subtle small" style="margin-top:8px">0 / ' + files.length + '</div>');
+    var done = 0, added = 0;
+    function next() {
+      if (done >= files.length) {
+        closeModal();
+        state.prospectBucket = 'images';
+        state.prospectDomain = 'tous';
+        go('prospect');
+        toast(added + ' fiche(s) image classée(s) dans le bac séparé.');
+        return;
+      }
+      var file = files[done];
+      var label = $('#prospect-progress');
+      if (label) label.textContent = (done + 1) + ' / ' + files.length + ' · ' + file.name;
+      var bar = $('#prospect-progress-bar');
+      if (bar) bar.style.width = Math.round(done / files.length * 100) + '%';
+      function finish(report) {
+        try {
+          var p = P.fromImageReport(report, { name: file.name, forcedDomain: forced });
+          if (p) added++;
+        } catch (e) { Store.log('Erreur classement image ' + file.name + ' : ' + e.message); }
+        done++;
+        Store.save();
+        next();
+      }
+      if (!online) return finish(localImageReport(file, forced));
+      fileToPayload(file, {
+        company: '', project: 'Prospection images',
+        question: 'Extraire le nom de l’entreprise, les contacts, l’adresse, le domaine d’activité et les services que Touch Unique Studio peut proposer.'
+      }).then(function (payload) {
+        return Cloud.analyzeMedia(payload).catch(function (e) {
+          var r = localImageReport(file, forced);
+          r.error = e.message;
+          return r;
+        });
+      }).then(finish).catch(function (e) {
+        var r = localImageReport(file, forced);
+        r.error = e.message;
+        finish(r);
+      });
+    }
+    next();
+  }
+
+  function prospectAction(act, id) {
+    var P = window.TUSProspects;
+    var p = (P && P.list() || []).find(function (x) { return x.id === id; });
+    if (!p) return;
+    if (act === 'prospect-status') {
+      Store.update('prospects', id, { status: p.status === 'contacté' ? 'à contacter' : 'contacté' });
+      toast('Statut mis à jour'); go('prospect');
+    } else if (act === 'prospect-client') {
+      if ((Store.db.clients || []).some(function (c) { return c.name === p.name; })) return toast('Client déjà enregistré.', true);
+      Store.add('clients', { name: p.name, phone: p.phone || '', email: p.email || '', city: p.city || '', source: p.source || 'Prospect', createdAt: Store.now() });
+      toast('Client créé à partir du prospect'); go('clients');
+    } else if (act === 'prospect-delete') {
+      confirmAction('Supprimer ce prospect ?', 'La fiche sera retirée de votre espace.', function () {
+        Store.remove('prospects', id); toast('Prospect supprimé'); go('prospect');
+      });
+    }
+  }
+
   var ACTIONS = {
     'run-autopilot': runAutopilot,
     'robots-status': refreshRobotStatus,
+    'collab-analyze': collabAnalyze,
+    'robot-edit': robotEdit,
+    'robot-folder': robotFolder,
     'robot-local': robotLocal,
     'robot-dry': function (id) { robotExecute(id, true); },
     'robot-run': function (id) {
@@ -1554,6 +2232,49 @@
       toast(s.status === 'publié' ? 'Statut réouvert' : 'Marqué publié'); go(page);
     },
     'social-delete': function (id) { Store.remove('social', id); toast('Publication supprimée'); go(page); },
+    'msg-refresh': function () { refreshInbox().then(function (ok) { if (ok) toast('Conversations actualisées'); }); },
+    'msg-perm': function (kind) {
+      if (!window.TUSMessages) return toast('Module de messagerie indisponible.', true);
+      var bridge = nativeBridge();
+      if (bridge && bridge.requestPermissions) bridge.requestPermissions();
+      window.TUSMessages.askPermission(kind === 'micro' ? 'micro' : 'camera')
+        .then(function (r) { toast(r.message); });
+    },
+    'msg-push': function () {
+      if (!window.TUSMessages) return toast('Module de messagerie indisponible.', true);
+      if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+        navigator.serviceWorker.ready.then(function (reg) {
+          return window.TUSMessages.subscribe(reg, 'admin', state.msgThread || 'admin');
+        }).then(function () { toast('Notifications push activées.'); })
+          .catch(function (e) { toast(e.message, true); });
+      } else startNativePolling();
+    },
+    'msg-native-poll': startNativePolling,
+    'msg-record': function () {
+      if (!window.TUSMessages) return toast('Module de messagerie indisponible.', true);
+      if (state.msgRec && state.msgRec.active()) {
+        var btn = $('[data-act="msg-record"]');
+        if (btn) btn.textContent = '● Enregistrer un vocal';
+        state.msgRec.stop().then(function (blob) {
+          state.msgRec = null;
+          msgSend('Message vocal', blob, 'voice');
+        }).catch(function (e) { toast(e.message, true); state.msgRec = null; });
+        return;
+      }
+      state.msgRec = window.TUSMessages.recorder();
+      if (!state.msgRec) return toast('Enregistrement indisponible sur cet appareil.', true);
+      state.msgRec.start().then(function () {
+        var btn = $('[data-act="msg-record"]');
+        if (btn) btn.textContent = '■ Arrêter et envoyer';
+        toast('Enregistrement en cours…');
+      }).catch(function (e) { toast(e.message, true); state.msgRec = null; });
+    },
+    'prospect-add-form': prospectForm,
+    'prospect-images-modal': prospectImagesModal,
+    'prospect-bucket': function (id) { state.prospectBucket = id === 'images' ? 'images' : 'online'; state.prospectDomain = 'tous'; go('prospect'); },
+    'prospect-status': function (id) { prospectAction('prospect-status', id); },
+    'prospect-client': function (id) { prospectAction('prospect-client', id); },
+    'prospect-delete': function (id) { prospectAction('prospect-delete', id); },
     'shop-recommend': function () { Store.db.shop.suggestions = A.shopActions(Store.products(), Store.db.leads || []); Store.save(); toast('Suggestions actualisées'); go(page); },
     'shop-new': shopNewForm,
     'shop-edit': shopEdit,
@@ -1576,19 +2297,64 @@
     'client-add-form': clientForm,
     'client-delete': function (id) { Store.remove('clients', id); toast('Client supprimé'); go(page); },
     'academy-open': function (id) {
-      var p = Store.products().find(function (x) { return x.id === id; });
+      var p = (C.academy && C.academy.offerings || []).find(function (x) { return x.id === id; }) ||
+        Store.products().find(function (x) { return x.id === id; });
       if (!p) return;
-      openModal('<h3>' + esc(p.name) + '</h3><p class="subtle">' + esc(p.desc) + '</p>' +
-        '<ul class="modal-list">' + (p.deliverables || []).map(function (d) { return '<li>' + esc(d) + '</li>'; }).join('') + '</ul>' +
+      var details = p.details || p.deliverables || [];
+      var meta = p.price ? '<div class="row" style="gap:6px;margin:8px 0"><span class="chip red">' + money(p.price) + '</span>' +
+        (p.duration ? '<span class="chip blue">' + esc(p.duration) + '</span>' : '') +
+        (p.level ? '<span class="chip gray">' + esc(p.level) + '</span>' : '') + '</div>' : '';
+      openModal('<h3>' + esc(p.name) + '</h3><p class="subtle">' + esc(p.short || p.desc || '') + '</p>' + meta +
+        '<h4 style="margin:12px 0 6px">Programme</h4>' +
+        '<ul class="modal-list">' + details.map(function (d) { return '<li>' + esc(d) + '</li>'; }).join('') + '</ul>' +
         '<div class="modal-actions"><a class="btn btn-primary" href="' + esc(waLink('Bonjour Touch Unique, je veux m’inscrire à ' + p.name)) + '" target="_blank" rel="noopener">S’inscrire</a>' +
         '<button class="btn btn-ghost" data-act="modal-close">Fermer</button></div>');
     },
-    'settings-export': function () {
-      var blob = new Blob([Store.exportData()], { type: 'application/json' });
-      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'touchunique-sauvegarde.json'; a.click(); URL.revokeObjectURL(a.href);
-      toast('Sauvegarde téléchargée');
+    'native-permissions': function () {
+      var bridge = nativeBridge();
+      if (!bridge || !bridge.requestPermissions) {
+        return toast('Disponible dans l’application Android.', true);
+      }
+      bridge.requestPermissions();
+      toast('Demande d’autorisation envoyée sur Android.');
     },
-    'settings-import': function () { $('#import-file').click(); },
+    'native-overlay': function () {
+      var bridge = nativeBridge();
+      if (!bridge || !bridge.requestOverlay) {
+        return toast('Disponible dans l’application Android.', true);
+      }
+      bridge.requestOverlay();
+      toast('Activez la superposition dans les réglages Android.');
+    },
+    'settings-export': function () {
+      var data = Store.exportData();
+      var name = 'touchunique-sauvegarde-' + new Date().toISOString().slice(0, 10) + '.json';
+      var bridge = nativeBridge();
+      if (bridge && bridge.downloadText) {
+        try {
+          var where = bridge.downloadText(name, data, 'application/json');
+          toast(where ? ('Sauvegarde enregistrée : ' + where) : 'Sauvegarde enregistrée sur l’appareil');
+        } catch (err) { toast(err.message || 'Export impossible', true); }
+        return;
+      }
+      try {
+        var blob = new Blob([data], { type: 'application/json' });
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+        toast('Sauvegarde téléchargée');
+      } catch (err) { toast(err.message || 'Export impossible', true); }
+    },
+    'settings-import': function () {
+      var bridge = nativeBridge();
+      if (bridge && bridge.pickText) {
+        try { bridge.pickText(); toast('Choisissez votre fichier de sauvegarde.'); }
+        catch (err) { toast(err.message || 'Import impossible', true); }
+        return;
+      }
+      var input = $('#import-file');
+      if (input) input.click();
+      else toast('Champ d’import introuvable', true);
+    },
     'settings-reset': function () { confirmAction('Réinitialiser les données ?', 'Les données locales actuelles seront remplacées par un espace vide.', function () { Store.reset(false); toast('Données réinitialisées'); go('home'); }); },
     'company-form': companyForm,
     'company-activate': function (id) {
@@ -1658,6 +2424,49 @@
         if (window.TUSetup) window.TUSetup.lock(boot);
       });
     },
+    'qr-show': function () {
+      if (!window.TUSQRSync) return toast('Module QR indisponible.', true);
+      try {
+        var code = window.TUSQRSync.makeSync();
+        var panel = $('#qr-settings-panel'); if (panel) panel.hidden = false;
+        var img = $('#qr-settings-image'); if (img) { img.src = window.TUSQRSync.image(code, 5); img.hidden = false; }
+        var text = $('#qr-settings-text'); if (text) text.value = code;
+        toast('Code QR prêt : scannez-le depuis votre autre appareil.');
+      } catch (e) { toast(e.message, true); }
+    },
+    'qr-scan': function () {
+      var panel = $('#qr-settings-panel'); if (panel) panel.hidden = false;
+      var file = $('#qr-settings-file'); if (file) file.click();
+    },
+    'qr-paste': function () {
+      var panel = $('#qr-settings-panel'); if (panel) panel.hidden = false;
+      var text = $('#qr-settings-text'); if (text) text.focus();
+    },
+    'qr-close': function () {
+      var panel = $('#qr-settings-panel'); if (panel) panel.hidden = true;
+    },
+    'qr-apply': function () {
+      if (!window.TUSQRSync) return toast('Module QR indisponible.', true);
+      var text = $('#qr-settings-text');
+      try {
+        var res = window.TUSQRSync.apply(text ? text.value : '');
+        if (res.pending) {
+          toast('Compte importé. Verrouillez l’espace et saisissez votre mot de passe sur cet appareil.');
+          if (window.TUSetup) window.TUSetup.lock(boot);
+          return;
+        }
+        toast('Connexion ' + (res.kind === 'login' ? 'effectuée' : 'et synchronisation terminée') + ' · ' + (res.user && res.user.email || ''));
+        render();
+      } catch (e) { toast(e.message, true); }
+    },
+    'updates-check': function () {
+      if (!window.TUSUpdates) return;
+      toast('Vérification du serveur de mises à jour…');
+      window.TUSUpdates.check().then(function (s) {
+        toast(s.updated ? ('Version ' + s.installed + ' installée') : (s.error || 'Aucune nouvelle version'), !!s.error);
+        paintUpdates(s);
+      }).catch(function (e) { toast(e.message, true); paintUpdates(); });
+    },
     'google-connect': function () {
       if (!Cloud) return;
       toast('Ouverture de Google…');
@@ -1665,6 +2474,22 @@
         toast(ok ? 'Google Drive connecté' : 'Connexion Google interrompue', !ok);
         refreshCloud();
       }).catch(function (e) { toast(e.message, true); });
+    },
+    'oauth-connect': function (id) {
+      if (!Cloud) return;
+      if (id === 'google') return ACTIONS['google-connect']();
+      toast('Ouverture de ' + id + '…');
+      Cloud.oauthConnect(id).then(function () {
+        toast('Connexion réussie'); refreshCloud();
+      }).catch(function (e) { toast(e.message, true); });
+    },
+    'oauth-disconnect': function (id) {
+      if (!Cloud) return;
+      confirmAction('Retirer cette connexion ?', 'Le jeton sera supprimé du coffre chiffré sur le serveur.', function () {
+        Cloud.oauthDisconnect(id).then(function () {
+          toast('Connexion retirée'); refreshCloud();
+        }).catch(function (e) { toast(e.message, true); });
+      });
     },
     'google-sync': googleSync,
     'google-backups': googleBackups,
@@ -1678,11 +2503,47 @@
   };
 
   function bindGlobal() {
+    window.__tusImportCallback = function (text, name) {
+      confirmAction('Importer cette sauvegarde ?', 'Les données locales actuelles seront remplacées par le fichier choisi.', function () {
+        try {
+          Store.importData(text, { confirmed: true });
+          var issue = Store.storageError && Store.storageError();
+          toast(issue ? ('Importé, mais non enregistré sur l’appareil : ' + issue) : ('Sauvegarde importée' + (name ? ' : ' + name : '')), !!issue);
+          go('home');
+        } catch (err) { toast('Fichier invalide : ' + err.message, true); }
+      });
+    };
+    window.addEventListener('tusback', function () {
+      if (modalRoot && !modalRoot.hidden) { closeModal(); return; }
+      var panel = $('#ai-panel');
+      if (panel && panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        panel.setAttribute('inert', '');
+      }
+      var admin = $('#admin-panel');
+      if (admin && admin.classList.contains('open')) {
+        admin.classList.remove('open');
+        admin.setAttribute('inert', '');
+      }
+    });
     $('#side-nav').addEventListener('click', function (e) {
       var b = e.target.closest('[data-page]'); if (b) { go(b.dataset.page); $('#sidebar').classList.remove('open'); }
     });
     $('#menu-btn').addEventListener('click', function () { $('#sidebar').classList.add('open'); });
     $('#side-close').addEventListener('click', function () { $('#sidebar').classList.remove('open'); });
+    /* Un appui ailleurs sur l’écran (ou Échap) referme le menu sans toucher le bouton. */
+    document.addEventListener('pointerdown', function (e) {
+      var sb = $('#sidebar');
+      if (!sb || !sb.classList.contains('open')) return;
+      if (e.target && e.target.closest && (e.target.closest('#sidebar') || e.target.closest('#menu-btn'))) return;
+      sb.classList.remove('open');
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        var sb = $('#sidebar');
+        if (sb) sb.classList.remove('open');
+      }
+    });
     $('#new-project').addEventListener('click', newProject);
     $('#theme-btn').addEventListener('click', function () {
       var root = document.documentElement;
@@ -1725,11 +2586,16 @@
           act === 'project-detail' || act === 'project-tasks' || act === 'project-advance' || act === 'social-copy' ||
           act === 'social-publish' || act === 'social-delete' || act === 'content-reuse' || act === 'shop-edit' ||
           act === 'shop-copy' || act === 'client-delete' || act === 'academy-open' ||
+           act === 'collab-analyze' || act === 'robot-edit' || act === 'robot-folder' ||
            act === 'robot-local' || act === 'robot-dry' || act === 'robot-run' ||
            act === 'company-activate' || act === 'company-project' || act === 'company-files' ||
            act === 'company-collab' || act === 'company-delete' || act === 'file-download' ||
            act === 'file-delete' || act === 'file-analyze' || act === 'account-remove' ||
-           act === 'google-restore' || act === 'folder-open' || act === 'folder-rename' ||
+           act === 'google-restore' || act === 'oauth-connect' || act === 'oauth-disconnect' || act === 'updates-check' ||
+           act === 'qr-show' || act === 'qr-scan' || act === 'qr-paste' || act === 'qr-apply' || act === 'qr-close' ||
+            act === 'msg-perm' || act === 'prospect-bucket' ||
+             act === 'prospect-status' || act === 'prospect-client' || act === 'prospect-delete' ||
+           act === 'folder-open' || act === 'folder-rename' ||
            act === 'folder-delete' || act === 'file-rename-local' || act === 'file-move-local' ||
            act === 'file-download-local' || act === 'file-delete-local' || act === 'file-analyze-local') fn(target.dataset.id);
       else fn();
@@ -1742,6 +2608,23 @@
         e.preventDefault(); var fd = new FormData(form);
         Store.add('social', { platform: fd.get('platform'), text: fd.get('text'), status: 'à valider', scheduledAt: fd.get('scheduledAt'), source: 'manuel' });
         closeModal(); toast('Publication ajoutée'); go('social');
+      } else if (form.id === 'msg-form') {
+        e.preventDefault();
+        var mf = $('#msg-text');
+        var value = mf ? (mf.value || '').trim() : '';
+        if (!value) return toast('Écrivez un message.', true);
+        msgSend(value);
+      } else if (form.id === 'prospect-images-form') {
+        e.preventDefault();
+        prospectImageAnalyze(form);
+      } else if (form.id === 'prospect-form') {
+        e.preventDefault();
+        var pf2 = new FormData(form);
+        if (window.TUSProspects) window.TUSProspects.add({
+          name: pf2.get('name'), phone: pf2.get('phone'), email: pf2.get('email'),
+          city: pf2.get('city'), source: pf2.get('source') || 'Manuel', need: pf2.get('need')
+        });
+        closeModal(); toast('Prospect enregistré'); go('prospect');
       } else if (form.id === 'project-form') {
         e.preventDefault(); var f = new FormData(form);
         var p = Store.add('projects', {
@@ -1762,8 +2645,23 @@
         var pf = new FormData(form), AI = window.TUSAI;
         if (!AI) return toast('Couche IA indisponible', true);
         try {
-          if (pf.get('url')) AI.connect(pf.get('url')); else AI.disconnect();
-          AI.setKey(pf.get('key'));
+          var S = window.TUSSecure || {};
+          if (!S.serverURL) throw new Error('Validation du serveur indisponible.');
+          var rawUrl = String(pf.get('url') || '').trim();
+          if (rawUrl) {
+            var cleanUrl = S.serverURL(rawUrl);
+            AI.connect(cleanUrl);
+            if (window.TUSMessages) window.TUSMessages.setServer(cleanUrl);
+            if (window.TUSCloud) window.TUSCloud.connect(cleanUrl);
+            S.setSecret(pf.get('key') || '');
+          } else {
+            AI.disconnect();
+            if (window.TUSCloud) window.TUSCloud.disconnect();
+            S.clearSecrets();
+          }
+          if (window.electronAPI && window.electronAPI.setConfig) {
+            window.electronAPI.setConfig({ url: rawUrl, key: pf.get('key') });
+          }
           toast('Connexion au serveur enregistrée');
           refreshConnections(); refreshRobotStatus();
         } catch (err) { toast(err.message, true); }
@@ -1861,19 +2759,39 @@
         }
         Cloud.saveAgents(agents).then(function () { closeModal(); toast('Agents configurés'); refreshCloud(); })
           .catch(function (err) { toast(err.message, true); });
+      } else if (form.id === 'robot-profile-form') {
+        e.preventDefault();
+        var R = window.TUSRobots;
+        if (!R) return;
+        var pf = new FormData(form);
+        R.saveProfile(form.dataset.id, {
+          name: pf.get('name'), icon: pf.get('icon'), color: pf.get('color')
+        }).then(function (r) {
+          closeModal(); toast('IA personnalisée : ' + r.name);
+          if (page === 'robots' || page === 'manager') go(page);
+        }).catch(function (err) { toast(err.message, true); });
       } else if (form.id === 'robots-config-form') {
         e.preventDefault();
         var rc = new FormData(form), nrobot = Number(form.dataset.count || 4), list = [];
         for (var j = 0; j < nrobot; j++) {
+          var rid = ['veille', 'publication', 'conception', 'prospection'][j] || ('robot-' + j);
           list.push({
-            id: ['veille', 'publication', 'conception', 'prospection'][j] || ('robot-' + j),
+            id: rid,
+            name: rc.get('name-' + j) || '',
+            icon: rc.get('icon-' + j) || '',
             enabled: rc.get('enabled-' + j) === '1',
             hour: Number(rc.get('hour-' + j) || 8),
             provider: rc.get('provider-' + j) || 'auto',
             topic: rc.get('topic-' + j) || ''
           });
         }
-        Cloud.saveRobots(list).then(function () { closeModal(); toast('Robots configurés'); refreshCloud(); })
+        Cloud.saveRobots(list).then(function () {
+          var R2 = window.TUSRobots;
+          if (R2) return Promise.all(list.filter(function (x) { return x.name || x.icon; }).map(function (x) {
+            return R2.saveProfile(x.id, { name: x.name, icon: x.icon });
+          }));
+          return null;
+        }).then(function () { closeModal(); toast('Robots configurés'); refreshCloud(); })
           .catch(function (err) { toast(err.message, true); });
       } else if (form.id === 'google-form') {
         e.preventDefault();
@@ -1886,6 +2804,26 @@
             .then(function () { if (++done === total) { toast(errs.length ? errs[0] : 'Configuration Google enregistrée', !!errs.length); refreshCloud(); } });
         });
         if (!total) toast('Saisissez au moins le Client ID et le Secret', true);
+      } else if (form.id === 'updates-form') {
+        e.preventDefault();
+        if (!window.TUSUpdates) return;
+        var uf = new FormData(form);
+        window.TUSUpdates.configure({ url: uf.get('url'), auto: uf.has('auto') }).then(function (s) {
+          toast('Canal de mise à jour enregistré'); paintUpdates(s);
+        }).catch(function (err) { toast(err.message, true); });
+      } else if (form.id === 'oauth-config-form') {
+        e.preventDefault();
+        var ofd = new FormData(form), oauthTasks = [], oauthCount = 0;
+        Cloud.OAUTH_FIELDS.forEach(function (f) {
+          var value = String(ofd.get(f.id) || '').trim();
+          if (!value) return;
+          oauthCount++;
+          oauthTasks.push(Cloud.credentials(f.id, value));
+        });
+        if (!oauthCount) return toast('Saisissez au moins un Client ID', true);
+        Promise.all(oauthTasks).then(function () {
+          form.reset(); toast('Configuration OAuth enregistrée'); refreshCloud();
+        }).catch(function (err) { toast(err.message, true); });
       } else if (form.matches && form.matches('[data-account]')) {
         e.preventDefault();
         var value = new FormData(form).get('value');
@@ -1907,6 +2845,14 @@
     });
     content.addEventListener('change', function (e) {
       if (e.target.id === 'social-filter') { state.socialFilter = e.target.value; go('social'); }
+      else if (e.target.id === 'msg-thread') { state.msgThread = e.target.value; refreshInbox(true); }
+      else if (e.target.id === 'prospect-filter') { state.prospectFilter = e.target.value; go('prospect'); }
+      else if (e.target.id === 'prospect-domain') { state.prospectDomain = e.target.value; go('prospect'); }
+      else if (e.target.id === 'msg-file') {
+        var chosen = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (chosen) msgSend('Pièce jointe', chosen, String(chosen.type || '').indexOf('audio/') === 0 ? 'voice' : 'file');
+      }
       else if (e.target.id === 'file-company') { state.fileCompany = e.target.value; state.fileProject = ''; state.fileFolder = ''; go('files'); loadFiles(); }
       else if (e.target.id === 'file-project') { state.fileProject = e.target.value; go('files'); loadFiles(); }
       else if (e.target.id === 'file-folder') { state.fileFolder = e.target.value; go('files'); loadFiles(); }
@@ -1928,8 +2874,7 @@
       if (!file) return;
       var reader = new FileReader();
       reader.onload = function () {
-        try { Store.importData(reader.result); toast('Sauvegarde importée'); go('home'); }
-        catch (err) { toast('Fichier invalide', true); }
+        if (typeof window.__tusImportCallback === 'function') window.__tusImportCallback(reader.result, file.name);
       };
       reader.readAsText(file);
       e.target.value = '';
@@ -1940,6 +2885,8 @@
         var panel = $('#ai-panel');
         panel.classList.remove('open');
         panel.setAttribute('inert', '');
+        var admin = $('#admin-panel');
+        if (admin) { admin.classList.remove('open'); admin.setAttribute('inert', ''); }
       }
     });
   }
@@ -1947,9 +2894,8 @@
   function syncAndNotify() {
     var n = Store.syncSiteLeads();
     if (window.TUSync) window.TUSync.pulse('app', { leads: Store.db.leads.length, projects: Store.db.projects.length });
-    renderNav();
+    updateBadges();
     if (n && page !== 'leads') toast(n + ' nouvelle(s) demande(s) du site');
-    if (page === 'home' || page === 'leads') go(page);
   }
 
   function boot() {
@@ -1978,11 +2924,30 @@
     });
     window.addEventListener('focus', syncAndNotify);
     setInterval(syncAndNotify, 8000);
+    setInterval(function () {
+      if ((page === 'social' || page === 'prospect') && window.TUSMessages && window.TUSMessages.server()) {
+        refreshInbox(true);
+      }
+    }, 25000);
   }
 
   function init() {
     if (Store.db.settings.theme) document.documentElement.dataset.theme = Store.db.settings.theme;
     bindGlobal();
+    refreshNativePermissions();
+    document.addEventListener('change', function (e) {
+      if (!e.target || e.target.id !== 'qr-settings-file') return;
+      if (!window.TUSQRSync) return;
+      window.TUSQRSync.decodeFile(e.target.files && e.target.files[0]).then(function (code) {
+        var box = $('#qr-settings-text'); if (box) box.value = code;
+        var panel = $('#qr-settings-panel'); if (panel) panel.hidden = false;
+        toast('Code QR lu. Appuyez sur « Connecter et synchroniser ».');
+      }).catch(function (err) { toast(err.message, true); });
+    });
+    window.addEventListener('tuspermissionschange', refreshNativePermissions);
+    if (window.TUSUpdates) window.TUSUpdates.onChange(function (s) { if (page === 'settings') paintUpdates(s); });
+    initNetworkMeter();
+    loadCollabFolders();
     initAI();
     var Setup = window.TUSetup;
     if (!Store.setupDone()) {
@@ -1990,8 +2955,11 @@
       return;
     }
     if (Accounts && Accounts.available() && !Accounts.current()) {
-      if (Setup) Setup.show('lock', boot); else boot();
-      return;
+      var resumed = Accounts.resume && Accounts.resume();
+      if (!resumed) {
+        if (Setup) Setup.show('lock', boot); else boot();
+        return;
+      }
     }
     boot();
   }
