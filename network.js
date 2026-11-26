@@ -5,6 +5,7 @@
 
   var ENABLE_KEY = 'tus_network_enabled_v1';
   var PROBE = 'https://phelobig.github.io/touchunique-site/?probe=';
+  var PROBE_FALLBACK = 'https://touchunique-serveur.onrender.com/api/visits';
   var BASE_INTERVAL = 20000;
   var MAX_INTERVAL = 300000;
   var MAX_BYTES = 50 * 1024 * 1024;
@@ -71,19 +72,28 @@
       }
       return finish(mine);
     }
-    if (typeof root.fetch !== 'function') {
+    function http() { return (root.TUSSecure && root.TUSSecure.fetch) || root.fetch; }
+    function read(url) {
+      return http()(url, { cache: 'no-store', credentials: 'omit' })
+        .then(function (r) {
+          if (!r.ok) throw new Error('Sonde indisponible');
+          var len = r.headers && r.headers.get ? Number(r.headers.get('content-length')) || 0 : 0;
+          if (len > MAX_PROBE_BYTES) throw new Error('Sonde trop volumineuse');
+          return r.arrayBuffer();
+        })
+        .then(function (buf) {
+          var size = buf && buf.byteLength ? buf.byteLength : 0;
+          if (size > MAX_PROBE_BYTES) throw new Error('Sonde trop volumineuse');
+          return size;
+        });
+    }
+    if (typeof http() !== 'function') {
       online = navigator.onLine !== false;
       return Promise.resolve(done(online, connection && connection.downlink ? Number(connection.downlink) : 0, 0));
     }
-    return root.fetch(PROBE + Date.now(), { cache: 'no-store', credentials: 'omit' })
-      .then(function (r) {
-        var len = r.headers && r.headers.get ? Number(r.headers.get('content-length')) || 0 : 0;
-        if (len > MAX_PROBE_BYTES) throw new Error('Sonde trop volumineuse');
-        return r.arrayBuffer();
-      })
-      .then(function (buf) {
-        var size = buf && buf.byteLength ? buf.byteLength : 0;
-        if (size > MAX_PROBE_BYTES) throw new Error('Sonde trop volumineuse');
+    return read(PROBE + Date.now())
+      .catch(function () { return read(PROBE_FALLBACK); })
+      .then(function (size) {
         var ended = (root.performance && performance.now) ? performance.now() : Date.now();
         var seconds = Math.max((ended - started) / 1000, 0.05);
         return done(true, (size * 8 / seconds) / 1000000, size);

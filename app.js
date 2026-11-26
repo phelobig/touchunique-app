@@ -194,6 +194,14 @@
     { id: 'settings', label: 'Réglages', icon: '⚙', kicker: 'Configuration', title: 'Réglages' }
   ];
 
+  var MOBILE_NAV = [
+    { id: 'home', label: 'Accueil', icon: '⌂' },
+    { id: 'projects', label: 'Projets', icon: '◆' },
+    { id: 'leads', label: 'Commandes', icon: '🌐' },
+    { id: 'content', label: 'Contenus', icon: '✦' },
+    { id: 'more', label: 'Plus', icon: '☰' }
+  ];
+
   /* ---------- Helpers ---------- */
   function esc(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
@@ -312,6 +320,18 @@
     updateBadges();
   }
 
+  function renderBottomNav() {
+    var box = $('#bottom-nav');
+    if (!box) return;
+    var unread = Store.unreadLeads();
+    box.innerHTML = MOBILE_NAV.map(function (n) {
+      var badge = n.id === 'leads' && unread ? '<span class="badge">' + unread + '</span>' : '';
+      var active = (n.id === 'more') ? '' : (n.id === page ? ' active' : '');
+      return '<button type="button" class="bottom-item' + active + '" data-page="' + n.id + '">' +
+        '<span class="ico">' + n.icon + '</span><span>' + n.label + '</span>' + badge + '</button>';
+    }).join('');
+  }
+
   function go(id) {
     var n = NAV.find(function (x) { return x.id === id; }) || NAV[0];
     var changed = page !== n.id;
@@ -320,6 +340,7 @@
     $('#page-title').textContent = n.title;
     $('#page-kicker').textContent = n.kicker;
     renderNav();
+    renderBottomNav();
     content.innerHTML = views[page] ? views[page]() : '';
     content.scrollTop = changed ? 0 : previousTop;
     if (page === 'content' && state.lastContent) paintContentResult(state.lastContent);
@@ -2582,6 +2603,12 @@
     $('#side-nav').addEventListener('click', function (e) {
       var b = e.target.closest('[data-page]'); if (b) { go(b.dataset.page); $('#sidebar').classList.remove('open'); }
     });
+    $('#bottom-nav').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-page]');
+      if (!b) return;
+      if (b.dataset.page === 'more') { $('#sidebar').classList.add('open'); return; }
+      go(b.dataset.page);
+    });
     $('#menu-btn').addEventListener('click', function () { $('#sidebar').classList.add('open'); });
     $('#side-close').addEventListener('click', function () { $('#sidebar').classList.remove('open'); });
     var updateInstall = $('#update-install');
@@ -2987,6 +3014,21 @@
     if (n && page !== 'leads') toast(n + ' nouvelle(s) demande(s) du site');
   }
 
+  /* Le suivi public et le badge de synchronisation doivent fonctionner dès
+     l'ouverture, avant même la configuration locale ou le verrouillage. */
+  function startConnectivity() {
+    refreshVisitors();
+    syncAndNotify();
+    window.addEventListener('focus', function () { syncAndNotify(); refreshVisitors(); });
+    setInterval(syncAndNotify, 8000);
+    setInterval(refreshVisitors, 60000);
+    setInterval(function () {
+      if ((page === 'social' || page === 'prospect') && window.TUSMessages && window.TUSMessages.server()) {
+        refreshInbox(true);
+      }
+    }, 25000);
+  }
+
   function boot() {
     Store.migrateShop();
     if (window.TUSCatalog && Cloud && Cloud.configured()) {
@@ -2996,8 +3038,6 @@
       window.TUSCatalog.subscribe(function () { if (page === 'shop') go('shop'); });
     }
     refreshCloud();
-    syncAndNotify();
-    refreshVisitors();
     go('home');
     probeUpdates();
     setTimeout(probeUpdates, 45000);
@@ -3014,14 +3054,6 @@
     window.addEventListener('storage', function (e) {
       if (e.key === Store.KEY || e.key === 'tus_site_leads_v1') syncAndNotify();
     });
-    window.addEventListener('focus', function () { syncAndNotify(); refreshVisitors(); });
-    setInterval(syncAndNotify, 8000);
-    setInterval(refreshVisitors, 60000);
-    setInterval(function () {
-      if ((page === 'social' || page === 'prospect') && window.TUSMessages && window.TUSMessages.server()) {
-        refreshInbox(true);
-      }
-    }, 25000);
   }
 
   function init() {
@@ -3045,6 +3077,7 @@
       if (page === 'settings') paintUpdates(s);
     });
     initNetworkMeter();
+    startConnectivity();
     loadCollabFolders();
     initAI();
     var Setup = window.TUSetup;

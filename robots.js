@@ -40,18 +40,18 @@
   }
   function headers() {
     var h = { 'Content-Type': 'application/json' };
-    try {
-      var k = root.localStorage.getItem(KEY_KEY) || '';
-      if (k) h['X-Tus-Key'] = k;
-    } catch (e) { /* stockage indisponible */ }
+    var k = root.TUSSecure && root.TUSSecure.getSecret ? root.TUSSecure.getSecret() : '';
+    if (!k) { try { k = root.localStorage.getItem(KEY_KEY) || ''; } catch (e) { /* mémoire */ } }
+    if (k) h['X-Tus-Key'] = k;
     return h;
   }
+  function http() { return (root.TUSSecure && root.TUSSecure.fetch) || root.fetch; }
   function get(path, timeout) {
     if (root.TUSNetwork && !root.TUSNetwork.enabled()) return Promise.resolve({ ok: false, offline: true, robots: ROBOTS });
     if (!url()) return Promise.resolve({ ok: false, configured: false, robots: ROBOTS });
     var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     var t = ctl ? setTimeout(function () { ctl.abort(); }, timeout || 6000) : null;
-    return fetch(url() + path, { headers: headers(), signal: ctl ? ctl.signal : undefined })
+    return http()(url() + path, { headers: headers(), signal: ctl ? ctl.signal : undefined })
       .then(function (r) { return r.json(); })
       .catch(function (e) { return { ok: false, error: e.message }; })
       .then(function (j) { if (t) clearTimeout(t); return j; });
@@ -61,7 +61,7 @@
     if (!url()) return Promise.reject(new Error('Serveur non configuré'));
     var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     var t = ctl ? setTimeout(function () { ctl.abort(); }, timeout || 90000) : null;
-    return fetch(url() + path, { method: 'POST', headers: headers(), body: JSON.stringify(payload || {}) })
+    return http()(url() + path, { method: 'POST', headers: headers(), body: JSON.stringify(payload || {}) })
       .then(function (r) { return r.json(); })
       .catch(function (e) { return { ok: false, error: e.message }; })
       .then(function (j) { if (t) clearTimeout(t); return j; });
