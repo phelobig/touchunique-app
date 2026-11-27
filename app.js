@@ -951,14 +951,15 @@
     var ac = C.academy || {};
     var modules = ac.modules || [];
     var offerings = ac.offerings || [];
-    var trainings = (window.TU_CATALOGUE && window.TU_CATALOGUE.products || []).filter(function (p) { return p.category === 'academie'; });
+    var trainings = (window.TU_CATALOGUE && window.TU_CATALOGUE.products || []).filter(function (p) { return p.category === 'formation'; });
     return '<div class="academy-banner"><img src="academie-couverture.webp" alt="Couverture Touch Unique Académie"></div>' +
       '<div class="auto-card card"><div class="card-head"><div><h2>' + esc(ac.eyebrow || 'Touch Unique Académie') + '</h2>' +
       '<div class="subtle">Apprenez à créer, puis à automatiser votre création.</div></div><span class="chip red">Formations</span></div>' +
       '<div class="row">' + modules.map(function (m) { return '<span class="chip blue">' + esc(m) + '</span>'; }).join('') + '</div></div>' +
       '<div class="section-title"><h2>Formations proposées</h2><span class="subtle small">Prix indicatifs · devis gratuit</span></div>' +
       '<div class="three-col">' + offerings.map(function (t) {
-        return '<article class="card academy-offer"><div class="spread"><b>' + esc(t.name) + '</b><span class="chip red">' + money(t.price) + '</span></div>' +
+        return '<article class="card academy-offer">' + (t.img ? '<img class="academy-offer-img" src="' + esc(t.img) + '" alt="" loading="lazy">' : '') +
+          '<div class="spread"><b>' + esc(t.name) + '</b><span class="chip red">' + money(t.price) + '</span></div>' +
           '<p class="subtle">' + esc(t.short) + '</p>' +
           '<div class="row" style="gap:6px"><span class="chip blue">' + esc(t.duration) + '</span><span class="chip gray">' + esc(t.level) + '</span></div>' +
           '<ul class="academy-list">' + (t.details || []).map(function (d) { return '<li>' + esc(d) + '</li>'; }).join('') + '</ul>' +
@@ -1251,7 +1252,7 @@
     if (p) shopForm(p, false);
   }
   function shopNewForm() {
-    shopForm({ category: 'outils', unit: 'forfait', price: 0, images: [] }, true);
+    shopForm({ category: 'boutique', unit: 'forfait', price: 0, images: [] }, true);
   }
   function shopSave(form) {
     var CAT = window.TUSCatalog;
@@ -1263,7 +1264,7 @@
       id: id || ('offre-' + Date.now().toString(36)),
       name: String(fd.get('name') || '').trim(),
       price: Number(fd.get('price') || 0), unit: String(fd.get('unit') || 'forfait'),
-      category: String(fd.get('category') || 'outils'), delay: String(fd.get('delay') || ''),
+      category: String(fd.get('category') || 'boutique'), delay: String(fd.get('delay') || ''),
       badge: String(fd.get('badge') || ''), popular: !!fd.get('popular'),
       short: String(fd.get('short') || ''), desc: String(fd.get('desc') || ''),
       deliverables: lines(fd.get('deliverables')), ai: lines(fd.get('ai')),
