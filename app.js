@@ -237,13 +237,37 @@
       '<button class="btn btn-primary" id="confirm-ok">Confirmer</button></div>');
     $('#confirm-ok').onclick = function () { closeModal(); onOk(); };
   }
-  function openModal(html) {
-    modalRoot.innerHTML = '<div class="modal">' + html + '</div>';
+  function openModal(html, cls) {
+    modalRoot.innerHTML = '<div class="modal' + (cls ? ' ' + cls : '') + '">' + html + '</div>';
     modalRoot.hidden = false;
     var f = $('input, button', modalRoot);
     if (f) setTimeout(function () { f.focus(); }, 40);
   }
   function closeModal() { modalRoot.hidden = true; modalRoot.innerHTML = ''; }
+
+  /* ---------- Films motion design ---------- */
+  function videoItem(id) {
+    if (id === 'brand-film') {
+      return { id: 'brand-film', name: 'Touch Unique Studio', video: 'brand-film.mp4', poster: 'brand-film.jpg' };
+    }
+    var p = Store.products().find(function (x) { return x.id === id; });
+    if (p) return p;
+    var films = C.films || [];
+    var film = films.find(function (x) { return x.id === id; });
+    if (film) return film;
+    var offers = (C.academy && C.academy.offerings) || [];
+    return offers.find(function (x) { return x.id === id; }) || null;
+  }
+  function openVideo(id) {
+    var v = videoItem(id);
+    if (!v || !v.video) return toast('Vidéo bientôt disponible.', true);
+    openModal('<div class="video-modal-head"><b>' + esc(v.name) + '</b>' +
+      '<button class="icon-btn" data-act="modal-close" aria-label="Fermer la vidéo">✕</button></div>' +
+      '<video controls autoplay playsinline preload="metadata" poster="' + esc(v.poster || '') + '" src="' + esc(v.video) + '"></video>' +
+      '<div class="video-modal-foot"><span>Film motion design · voix off · effets sonores</span>' +
+      '<a href="' + esc(waLink('Bonjour Touch Unique, je souhaite commander.')) + '" target="_blank" rel="noopener">Commander sur WhatsApp</a></div>',
+      'video-modal-box');
+  }
   function copy(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () { toast('Copié dans le presse-papiers'); });
@@ -373,7 +397,13 @@
     var score = Math.min(100, 62 + Math.round((d.stats.runs || 0) * 6) % 38);
     var recent = leads.slice(0, 4);
     var pending = tasks.filter(function (t) { return t.status !== 'terminée'; }).slice(0, 5);
-    return '<div class="kpi-grid">' +
+    var film = (C.films || [])[0];
+    return (film ? '<div class="card featured-film"><div class="spread"><div><h2>Film à la une</h2>' +
+      '<div class="subtle">' + esc(film.name) + ' · ' + esc(film.duration || '') + '</div></div>' +
+      '<button class="btn btn-primary btn-sm" type="button" data-video="' + esc(film.id) + '">▶ Voir le film</button></div>' +
+      '<button class="film-thumb" type="button" data-video="' + esc(film.id) + '" aria-label="Voir le film : ' + esc(film.name) + '">' +
+      '<img src="' + esc(film.poster || '') + '" alt="" loading="lazy"><span class="vc-play" aria-hidden="true"><span>▶</span></span></button></div>' : '') +
+      '<div class="kpi-grid">' +
       kpi(leads.length, 'Demandes reçues', '🌐') +
       kpi(projects.length, 'Projets actifs', '◆') +
       kpi(d.stats.generated || 0, 'Contenus générés', '✦') +
@@ -891,6 +921,7 @@
       '<div class="shop-grid">' + products.map(function (p) {
         var imgs = window.TUSCatalog ? window.TUSCatalog.images(p) : (p.img ? [p.img] : []);
         return '<article class="shop-card"><img src="' + esc(imgs[0] || '') + '" alt="" loading="lazy">' +
+          (p.video ? '<button class="video-badge" type="button" data-video="' + esc(p.id) + '"><span aria-hidden="true">▶</span> Vidéo</button>' : '') +
           (imgs.length > 1 ? '<span class="chip blue shop-count">' + imgs.length + ' images</span>' : '') +
           '<div class="shop-card-body"><div class="spread"><b>' + esc(p.name) + '</b>' + (p.popular ? '<span class="chip red">Top</span>' : '') + '</div>' +
           '<p>' + esc(p.short) + '</p><div class="spread"><span class="chip blue">' + money(p.price) + '</span>' +
@@ -932,6 +963,7 @@
           '<div class="row" style="gap:6px"><span class="chip blue">' + esc(t.duration) + '</span><span class="chip gray">' + esc(t.level) + '</span></div>' +
           '<ul class="academy-list">' + (t.details || []).map(function (d) { return '<li>' + esc(d) + '</li>'; }).join('') + '</ul>' +
           '<div class="row"><button class="btn btn-ghost btn-sm" data-act="academy-open" data-id="' + esc(t.id) + '">Voir le programme</button>' +
+          (t.video ? '<button class="btn btn-ghost btn-sm" data-video="' + esc(t.id) + '">▶ Vidéo</button>' : '') +
           '<a class="btn btn-primary btn-sm" href="' + esc(waLink('Bonjour Touch Unique, je veux m’inscrire à ' + t.name)) + '" target="_blank" rel="noopener">S’inscrire</a></div></article>';
       }).join('') + '</div>' +
       (trainings.length ? '<div class="section-title"><h2>Formations du catalogue</h2></div><div class="three-col">' +
@@ -2466,7 +2498,9 @@
       openModal('<h3>' + esc(p.name) + '</h3><p class="subtle">' + esc(p.short || p.desc || '') + '</p>' + meta +
         '<h4 style="margin:12px 0 6px">Programme</h4>' +
         '<ul class="modal-list">' + details.map(function (d) { return '<li>' + esc(d) + '</li>'; }).join('') + '</ul>' +
-        '<div class="modal-actions"><a class="btn btn-primary" href="' + esc(waLink('Bonjour Touch Unique, je veux m’inscrire à ' + p.name)) + '" target="_blank" rel="noopener">S’inscrire</a>' +
+        '<div class="modal-actions">' +
+        (p.video ? '<button class="btn btn-ghost" data-video="' + esc(p.id) + '">▶ Voir la vidéo</button>' : '') +
+        '<a class="btn btn-primary" href="' + esc(waLink('Bonjour Touch Unique, je veux m’inscrire à ' + p.name)) + '" target="_blank" rel="noopener">S’inscrire</a>' +
         '<button class="btn btn-ghost" data-act="modal-close">Fermer</button></div>');
     },
     'native-permissions': function () {
@@ -2752,7 +2786,12 @@
       if (e.key === 'Escape') {
         var sb = $('#sidebar');
         if (sb) sb.classList.remove('open');
+        if (modalRoot && !modalRoot.hidden) closeModal();
       }
+    });
+    document.addEventListener('click', function (e) {
+      var v = e.target.closest('[data-video]');
+      if (v) { e.preventDefault(); openVideo(v.dataset.video); }
     });
     $('#new-project').addEventListener('click', newProject);
     $('#theme-btn').addEventListener('click', function () {
