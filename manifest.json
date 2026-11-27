@@ -1,368 +1,522 @@
 {
-  "generatedAt": "2026-11-27T12:56:46",
+  "generatedAt": "2026-11-27T15:20:46",
   "width": 960,
   "height": 540,
   "fps": 24,
+  "voice": "fr-FR-HenriNeural",
   "items": [
     {
-      "id": "identite-express",
-      "kind": "product",
-      "name": "Identité Express",
-      "duration": 22.01,
-      "mp4": "identite-express.mp4",
-      "poster": "identite-express.jpg",
-      "bytes": 476543,
-      "narration": 19.51
-    },
-    {
-      "id": "identite-signature",
-      "kind": "product",
-      "name": "Identité Signature",
-      "duration": 22.99,
-      "mp4": "identite-signature.mp4",
-      "poster": "identite-signature.jpg",
-      "bytes": 511208,
-      "narration": 20.49
-    },
-    {
-      "id": "pack-visibility-pro",
-      "kind": "product",
-      "name": "Pack Visibilité Pro",
-      "duration": 22.19,
-      "mp4": "pack-visibility-pro.mp4",
-      "poster": "pack-visibility-pro.jpg",
-      "bytes": 483651,
-      "narration": 19.69
-    },
-    {
-      "id": "pack-marque-complete",
-      "kind": "product",
-      "name": "Pack Marque Complète",
-      "duration": 22.86,
-      "mp4": "pack-marque-complete.mp4",
-      "poster": "pack-marque-complete.jpg",
-      "bytes": 508172,
-      "narration": 20.36
-    },
-    {
-      "id": "video-impact",
-      "kind": "product",
-      "name": "Vidéo Impact 60 s",
-      "duration": 20.37,
-      "mp4": "video-impact.mp4",
-      "poster": "video-impact.jpg",
-      "bytes": 449445,
-      "narration": 17.87
-    },
-    {
-      "id": "motion-logo",
-      "kind": "product",
-      "name": "Motion Logo",
-      "duration": 20.06,
-      "mp4": "motion-logo.mp4",
-      "poster": "motion-logo.jpg",
-      "bytes": 441432,
-      "narration": 17.56
-    },
-    {
-      "id": "kit-visuels-20",
-      "kind": "product",
-      "name": "Kit 20 visuels réseaux",
-      "duration": 21.35,
-      "mp4": "kit-visuels-20.mp4",
-      "poster": "kit-visuels-20.jpg",
-      "bytes": 464887,
-      "narration": 18.85
-    },
-    {
-      "id": "banniere-pro",
-      "kind": "product",
-      "name": "Bannière professionnelle",
-      "duration": 21.63,
-      "mp4": "banniere-pro.mp4",
-      "poster": "banniere-pro.jpg",
-      "bytes": 468501,
-      "narration": 19.13
-    },
-    {
-      "id": "affiche-evenement",
-      "kind": "product",
-      "name": "Affiche événementielle",
-      "duration": 20.86,
-      "mp4": "affiche-evenement.mp4",
-      "poster": "affiche-evenement.jpg",
-      "bytes": 458900,
-      "narration": 18.36
-    },
-    {
-      "id": "packaging-produit",
-      "kind": "product",
-      "name": "Packaging produit",
-      "duration": 21.74,
-      "mp4": "packaging-produit.mp4",
-      "poster": "packaging-produit.jpg",
-      "bytes": 470849,
-      "narration": 19.24
-    },
-    {
-      "id": "plaquette-entreprise",
-      "kind": "product",
-      "name": "Plaquette entreprise",
-      "duration": 22.01,
-      "mp4": "plaquette-entreprise.mp4",
-      "poster": "plaquette-entreprise.jpg",
-      "bytes": 476592,
-      "narration": 19.51
-    },
-    {
-      "id": "site-vitrine-one-page",
-      "kind": "product",
-      "name": "Site vitrine one-page",
-      "duration": 23.43,
-      "mp4": "site-vitrine-one-page.mp4",
-      "poster": "site-vitrine-one-page.jpg",
-      "bytes": 518830,
-      "narration": 20.93
-    },
-    {
-      "id": "mini-site-portfolio",
-      "kind": "product",
-      "name": "Mini-site portfolio",
-      "duration": 21.6,
-      "mp4": "mini-site-portfolio.mp4",
-      "poster": "mini-site-portfolio.jpg",
-      "bytes": 467408,
-      "narration": 19.1
-    },
-    {
-      "id": "formation-graphisme",
-      "kind": "product",
-      "name": "Formation GraphismePro",
-      "duration": 22.0,
-      "mp4": "formation-graphisme.mp4",
-      "poster": "formation-graphisme.jpg",
-      "bytes": 474602,
-      "narration": 19.5
-    },
-    {
-      "id": "formation-video-capcut",
-      "kind": "product",
-      "name": "Formation Vidéo CapCut",
-      "duration": 20.76,
-      "mp4": "formation-video-capcut.mp4",
-      "poster": "formation-video-capcut.jpg",
-      "bytes": 454130,
-      "narration": 18.26
-    },
-    {
-      "id": "formation-ai-contenus",
-      "kind": "product",
-      "name": "Formation IA & Contenus",
-      "duration": 21.54,
-      "mp4": "formation-ai-contenus.mp4",
-      "poster": "formation-ai-contenus.jpg",
-      "bytes": 469769,
-      "narration": 19.04
-    },
-    {
       "id": "abonnement-ai-content",
-      "kind": "product",
-      "name": "Abonnement AI Content",
-      "duration": 22.15,
+      "duration": 21.21,
       "mp4": "abonnement-ai-content.mp4",
       "poster": "abonnement-ai-content.jpg",
-      "bytes": 478504,
-      "narration": 19.65
-    },
-    {
-      "id": "autopilot-shop",
+      "bytes": 887931,
       "kind": "product",
-      "name": "Autopilot Boutique",
-      "duration": 20.97,
-      "mp4": "autopilot-shop.mp4",
-      "poster": "autopilot-shop.jpg",
-      "bytes": 460843,
-      "narration": 18.47
-    },
-    {
-      "id": "audit-visibility",
-      "kind": "product",
-      "name": "Audit de visibilité",
-      "duration": 22.76,
-      "mp4": "audit-visibility.mp4",
-      "poster": "audit-visibility.jpg",
-      "bytes": 504992,
-      "narration": 20.26
-    },
-    {
-      "id": "pack-cadeau-pro",
-      "kind": "product",
-      "name": "Pack cadeau entreprise",
-      "duration": 21.81,
-      "mp4": "pack-cadeau-pro.mp4",
-      "poster": "pack-cadeau-pro.jpg",
-      "bytes": 471990,
-      "narration": 19.31
-    },
-    {
-      "id": "carte-visite-premium",
-      "kind": "product",
-      "name": "Cartes de visite premium",
-      "duration": 21.17,
-      "mp4": "carte-visite-premium.mp4",
-      "poster": "carte-visite-premium.jpg",
-      "bytes": 463934,
-      "narration": 18.67
-    },
-    {
-      "id": "session-strategie",
-      "kind": "product",
-      "name": "Session stratégie 1 h",
-      "duration": 20.85,
-      "mp4": "session-strategie.mp4",
-      "poster": "session-strategie.jpg",
-      "bytes": 457983,
-      "narration": 18.35
-    },
-    {
-      "id": "outil-kit-publications",
-      "kind": "product",
-      "name": "Kit 30 publications",
-      "duration": 23.58,
-      "mp4": "outil-kit-publications.mp4",
-      "poster": "outil-kit-publications.jpg",
-      "bytes": 518597,
-      "narration": 21.08
-    },
-    {
-      "id": "outil-charte-modele",
-      "kind": "product",
-      "name": "Modèle de charte graphique",
-      "duration": 23.02,
-      "mp4": "outil-charte-modele.mp4",
-      "poster": "outil-charte-modele.jpg",
-      "bytes": 510787,
-      "narration": 20.52
-    },
-    {
-      "id": "outil-automatisation-reseaux",
-      "kind": "product",
-      "name": "Automatiser mes réseaux",
-      "duration": 24.04,
-      "mp4": "outil-automatisation-reseaux.mp4",
-      "poster": "outil-automatisation-reseaux.jpg",
-      "bytes": 530093,
-      "narration": 21.54
-    },
-    {
-      "id": "outil-site-express",
-      "kind": "product",
-      "name": "Site vitrine express",
-      "duration": 24.02,
-      "mp4": "outil-site-express.mp4",
-      "poster": "outil-site-express.jpg",
-      "bytes": 520288,
-      "narration": 21.52
-    },
-    {
-      "id": "outil-formation-ia",
-      "kind": "product",
-      "name": "Formation IA pratique",
-      "duration": 23.75,
-      "mp4": "outil-formation-ia.mp4",
-      "poster": "outil-formation-ia.jpg",
-      "bytes": 520203,
-      "narration": 21.25
-    },
-    {
-      "id": "outil-audit-digital",
-      "kind": "product",
-      "name": "Audit digital & outils",
-      "duration": 22.37,
-      "mp4": "outil-audit-digital.mp4",
-      "poster": "outil-audit-digital.jpg",
-      "bytes": 492612,
-      "narration": 19.87
-    },
-    {
-      "id": "acad-design",
-      "kind": "academy",
-      "name": "Design graphique & identité",
-      "duration": 27.04,
-      "mp4": "acad-design.mp4",
-      "poster": "acad-design.jpg",
-      "bytes": 577876,
-      "narration": 24.54
-    },
-    {
-      "id": "acad-video",
-      "kind": "academy",
-      "name": "Vidéo & montage CapCut Pro",
-      "duration": 27.95,
-      "mp4": "acad-video.mp4",
-      "poster": "acad-video.jpg",
-      "bytes": 590064,
-      "narration": 25.45
-    },
-    {
-      "id": "acad-ia",
-      "kind": "academy",
-      "name": "IA & création de contenus",
-      "duration": 27.91,
-      "mp4": "acad-ia.mp4",
-      "poster": "acad-ia.jpg",
-      "bytes": 588779,
-      "narration": 25.41
-    },
-    {
-      "id": "acad-brand",
-      "kind": "academy",
-      "name": "Branding & packaging produit",
-      "duration": 26.75,
-      "mp4": "acad-brand.mp4",
-      "poster": "acad-brand.jpg",
-      "bytes": 573590,
-      "narration": 24.25
-    },
-    {
-      "id": "acad-photo",
-      "kind": "academy",
-      "name": "Photographie & retouche produit",
-      "duration": 25.13,
-      "mp4": "acad-photo.mp4",
-      "poster": "acad-photo.jpg",
-      "bytes": 549073,
-      "narration": 22.63
+      "category": "technologie"
     },
     {
       "id": "acad-auto",
-      "kind": "academy",
-      "name": "Automatiser boutique & réseaux",
-      "duration": 27.75,
+      "duration": 30.96,
       "mp4": "acad-auto.mp4",
       "poster": "acad-auto.jpg",
-      "bytes": 589157,
-      "narration": 25.25
+      "bytes": 2817341,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "acad-brand",
+      "duration": 30.11,
+      "mp4": "acad-brand.mp4",
+      "poster": "acad-brand.jpg",
+      "bytes": 2785610,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "acad-design",
+      "duration": 30.13,
+      "mp4": "acad-design.mp4",
+      "poster": "acad-design.jpg",
+      "bytes": 2817772,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "acad-ia",
+      "duration": 30.25,
+      "mp4": "acad-ia.mp4",
+      "poster": "acad-ia.jpg",
+      "bytes": 2852174,
+      "kind": "academy",
+      "category": "formation"
     },
     {
       "id": "acad-pack",
-      "kind": "academy",
-      "name": "Pack Académie complet",
-      "duration": 25.9,
+      "duration": 29.94,
       "mp4": "acad-pack.mp4",
       "poster": "acad-pack.jpg",
-      "bytes": 549216,
-      "narration": 23.4
+      "bytes": 2782903,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "acad-photo",
+      "duration": 28.5,
+      "mp4": "acad-photo.mp4",
+      "poster": "acad-photo.jpg",
+      "bytes": 2699854,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "acad-video",
+      "duration": 31.08,
+      "mp4": "acad-video.mp4",
+      "poster": "acad-video.jpg",
+      "bytes": 2863560,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "affiche-evenement",
+      "duration": 21.9,
+      "mp4": "affiche-evenement.mp4",
+      "poster": "affiche-evenement.jpg",
+      "bytes": 927744,
+      "kind": "product",
+      "category": "imprimerie"
+    },
+    {
+      "id": "audit-visibility",
+      "duration": 22.52,
+      "mp4": "audit-visibility.mp4",
+      "poster": "audit-visibility.jpg",
+      "bytes": 917150,
+      "kind": "product",
+      "category": "technologie"
+    },
+    {
+      "id": "autopilot-shop",
+      "duration": 21.37,
+      "mp4": "autopilot-shop.mp4",
+      "poster": "autopilot-shop.jpg",
+      "bytes": 884494,
+      "kind": "product",
+      "category": "technologie"
+    },
+    {
+      "id": "banniere-pro",
+      "duration": 21.2,
+      "mp4": "banniere-pro.mp4",
+      "poster": "banniere-pro.jpg",
+      "bytes": 1013751,
+      "kind": "product",
+      "category": "conception-graphique"
     },
     {
       "id": "brand-film",
-      "kind": "brand",
-      "name": "Touch Unique Studio",
-      "duration": 23.51,
+      "duration": 22.5,
       "mp4": "brand-film.mp4",
       "poster": "brand-film.jpg",
-      "bytes": 537944,
-      "narration": 21.01
+      "bytes": 1105336,
+      "kind": "brand",
+      "category": "brand"
+    },
+    {
+      "id": "carte-visite-premium",
+      "duration": 22.25,
+      "mp4": "carte-visite-premium.mp4",
+      "poster": "carte-visite-premium.jpg",
+      "bytes": 938671,
+      "kind": "product",
+      "category": "imprimerie"
+    },
+    {
+      "id": "formation-ai-contenus",
+      "duration": 21.88,
+      "mp4": "formation-ai-contenus.mp4",
+      "poster": "formation-ai-contenus.jpg",
+      "bytes": 2133978,
+      "kind": "product",
+      "category": "formation"
+    },
+    {
+      "id": "formation-graphisme",
+      "duration": 23.04,
+      "mp4": "formation-graphisme.mp4",
+      "poster": "formation-graphisme.jpg",
+      "bytes": 2191820,
+      "kind": "product",
+      "category": "formation"
+    },
+    {
+      "id": "formation-spot-alimentation-1",
+      "duration": 32.63,
+      "mp4": "formation-spot-alimentation-1.mp4",
+      "poster": "formation-spot-alimentation-1.jpg",
+      "bytes": 3036278,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "formation-spot-alimentation-2",
+      "duration": 32.65,
+      "mp4": "formation-spot-alimentation-2.mp4",
+      "poster": "formation-spot-alimentation-2.jpg",
+      "bytes": 3034327,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "formation-spot-bien-etre",
+      "duration": 32.24,
+      "mp4": "formation-spot-bien-etre.mp4",
+      "poster": "formation-spot-bien-etre.jpg",
+      "bytes": 2994095,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "formation-spot-commerce",
+      "duration": 32.08,
+      "mp4": "formation-spot-commerce.mp4",
+      "poster": "formation-spot-commerce.jpg",
+      "bytes": 3059332,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "formation-spot-evenement",
+      "duration": 31.98,
+      "mp4": "formation-spot-evenement.mp4",
+      "poster": "formation-spot-evenement.jpg",
+      "bytes": 3007980,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "formation-spot-naturo",
+      "duration": 32.12,
+      "mp4": "formation-spot-naturo.mp4",
+      "poster": "formation-spot-naturo.jpg",
+      "bytes": 3011577,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "formation-spot-proprete",
+      "duration": 32.38,
+      "mp4": "formation-spot-proprete.mp4",
+      "poster": "formation-spot-proprete.jpg",
+      "bytes": 3023659,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "formation-spot-restaurant-1",
+      "duration": 32.5,
+      "mp4": "formation-spot-restaurant-1.mp4",
+      "poster": "formation-spot-restaurant-1.jpg",
+      "bytes": 3026557,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "formation-spot-restaurant-2",
+      "duration": 32.5,
+      "mp4": "formation-spot-restaurant-2.mp4",
+      "poster": "formation-spot-restaurant-2.jpg",
+      "bytes": 3027904,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "formation-spot-transactions",
+      "duration": 32.21,
+      "mp4": "formation-spot-transactions.mp4",
+      "poster": "formation-spot-transactions.jpg",
+      "bytes": 3017341,
+      "kind": "academy",
+      "category": "formation"
+    },
+    {
+      "id": "formation-video-capcut",
+      "duration": 22.16,
+      "mp4": "formation-video-capcut.mp4",
+      "poster": "formation-video-capcut.jpg",
+      "bytes": 2104831,
+      "kind": "product",
+      "category": "formation"
+    },
+    {
+      "id": "gestion-promo",
+      "duration": 50.0,
+      "mp4": "gestion-promo.mp4",
+      "poster": "gestion-promo.jpg",
+      "bytes": 2126669,
+      "kind": "demo",
+      "category": "technologie"
+    },
+    {
+      "id": "identite-express",
+      "duration": 21.5,
+      "mp4": "identite-express.mp4",
+      "poster": "identite-express.jpg",
+      "bytes": 1012610,
+      "kind": "product",
+      "category": "conception-graphique"
+    },
+    {
+      "id": "identite-signature",
+      "duration": 23.0,
+      "mp4": "identite-signature.mp4",
+      "poster": "identite-signature.jpg",
+      "bytes": 1043934,
+      "kind": "product",
+      "category": "conception-graphique"
+    },
+    {
+      "id": "kit-visuels-20",
+      "duration": 22.46,
+      "mp4": "kit-visuels-20.mp4",
+      "poster": "kit-visuels-20.jpg",
+      "bytes": 1153554,
+      "kind": "product",
+      "category": "boutique"
+    },
+    {
+      "id": "mini-site-portfolio",
+      "duration": 21.49,
+      "mp4": "mini-site-portfolio.mp4",
+      "poster": "mini-site-portfolio.jpg",
+      "bytes": 894019,
+      "kind": "product",
+      "category": "technologie"
+    },
+    {
+      "id": "motion-logo",
+      "duration": 19.52,
+      "mp4": "motion-logo.mp4",
+      "poster": "motion-logo.jpg",
+      "bytes": 1632724,
+      "kind": "product",
+      "category": "multi-media"
+    },
+    {
+      "id": "outil-audit-digital",
+      "duration": 22.5,
+      "mp4": "outil-audit-digital.mp4",
+      "poster": "outil-audit-digital.jpg",
+      "bytes": 913963,
+      "kind": "product",
+      "category": "technologie"
+    },
+    {
+      "id": "outil-automatisation-reseaux",
+      "duration": 23.92,
+      "mp4": "outil-automatisation-reseaux.mp4",
+      "poster": "outil-automatisation-reseaux.jpg",
+      "bytes": 976777,
+      "kind": "product",
+      "category": "technologie"
+    },
+    {
+      "id": "outil-charte-modele",
+      "duration": 23.12,
+      "mp4": "outil-charte-modele.mp4",
+      "poster": "outil-charte-modele.jpg",
+      "bytes": 1166226,
+      "kind": "product",
+      "category": "boutique"
+    },
+    {
+      "id": "outil-formation-ia",
+      "duration": 24.46,
+      "mp4": "outil-formation-ia.mp4",
+      "poster": "outil-formation-ia.jpg",
+      "bytes": 2356346,
+      "kind": "product",
+      "category": "formation"
+    },
+    {
+      "id": "outil-kit-publications",
+      "duration": 23.92,
+      "mp4": "outil-kit-publications.mp4",
+      "poster": "outil-kit-publications.jpg",
+      "bytes": 1196209,
+      "kind": "product",
+      "category": "boutique"
+    },
+    {
+      "id": "outil-site-express",
+      "duration": 24.04,
+      "mp4": "outil-site-express.mp4",
+      "poster": "outil-site-express.jpg",
+      "bytes": 971486,
+      "kind": "product",
+      "category": "technologie"
+    },
+    {
+      "id": "pack-cadeau-pro",
+      "duration": 21.75,
+      "mp4": "pack-cadeau-pro.mp4",
+      "poster": "pack-cadeau-pro.jpg",
+      "bytes": 1117411,
+      "kind": "product",
+      "category": "pack-promos"
+    },
+    {
+      "id": "pack-marque-complete",
+      "duration": 21.95,
+      "mp4": "pack-marque-complete.mp4",
+      "poster": "pack-marque-complete.jpg",
+      "bytes": 1132485,
+      "kind": "product",
+      "category": "pack-promos"
+    },
+    {
+      "id": "pack-visibility-pro",
+      "duration": 22.19,
+      "mp4": "pack-visibility-pro.mp4",
+      "poster": "pack-visibility-pro.jpg",
+      "bytes": 1139584,
+      "kind": "product",
+      "category": "pack-promos"
+    },
+    {
+      "id": "packaging-produit",
+      "duration": 22.74,
+      "mp4": "packaging-produit.mp4",
+      "poster": "packaging-produit.jpg",
+      "bytes": 988357,
+      "kind": "product",
+      "category": "imprimerie"
+    },
+    {
+      "id": "plaquette-entreprise",
+      "duration": 22.91,
+      "mp4": "plaquette-entreprise.mp4",
+      "poster": "plaquette-entreprise.jpg",
+      "bytes": 988562,
+      "kind": "product",
+      "category": "imprimerie"
+    },
+    {
+      "id": "session-strategie",
+      "duration": 21.63,
+      "mp4": "session-strategie.mp4",
+      "poster": "session-strategie.jpg",
+      "bytes": 890645,
+      "kind": "product",
+      "category": "technologie"
+    },
+    {
+      "id": "site-vitrine-one-page",
+      "duration": 22.98,
+      "mp4": "site-vitrine-one-page.mp4",
+      "poster": "site-vitrine-one-page.jpg",
+      "bytes": 921443,
+      "kind": "product",
+      "category": "technologie"
+    },
+    {
+      "id": "spot-anne-service",
+      "duration": 48.55,
+      "mp4": "spot-anne-service.mp4",
+      "poster": "spot-anne-service.jpg",
+      "bytes": 3450655,
+      "kind": "spot",
+      "category": "multi-media"
+    },
+    {
+      "id": "spot-aout-2025-1",
+      "duration": 64.25,
+      "mp4": "spot-aout-2025-1.mp4",
+      "poster": "spot-aout-2025-1.jpg",
+      "bytes": 4709956,
+      "kind": "spot",
+      "category": "multi-media"
+    },
+    {
+      "id": "spot-aout-2025-2",
+      "duration": 64.25,
+      "mp4": "spot-aout-2025-2.mp4",
+      "poster": "spot-aout-2025-2.jpg",
+      "bytes": 4664758,
+      "kind": "spot",
+      "category": "multi-media"
+    },
+    {
+      "id": "spot-decembre-2025-1",
+      "duration": 52.67,
+      "mp4": "spot-decembre-2025-1.mp4",
+      "poster": "spot-decembre-2025-1.jpg",
+      "bytes": 2277789,
+      "kind": "spot",
+      "category": "multi-media"
+    },
+    {
+      "id": "spot-decembre-2025-2",
+      "duration": 43.63,
+      "mp4": "spot-decembre-2025-2.mp4",
+      "poster": "spot-decembre-2025-2.jpg",
+      "bytes": 3310029,
+      "kind": "spot",
+      "category": "multi-media"
+    },
+    {
+      "id": "spot-decembre-2025-3",
+      "duration": 43.63,
+      "mp4": "spot-decembre-2025-3.mp4",
+      "poster": "spot-decembre-2025-3.jpg",
+      "bytes": 2973627,
+      "kind": "spot",
+      "category": "multi-media"
+    },
+    {
+      "id": "spot-fevrier-2025",
+      "duration": 38.63,
+      "mp4": "spot-fevrier-2025.mp4",
+      "poster": "spot-fevrier-2025.jpg",
+      "bytes": 2179580,
+      "kind": "spot",
+      "category": "multi-media"
+    },
+    {
+      "id": "spot-naturo-therapie",
+      "duration": 43.31,
+      "mp4": "spot-naturo-therapie.mp4",
+      "poster": "spot-naturo-therapie.jpg",
+      "bytes": 2810540,
+      "kind": "spot",
+      "category": "multi-media"
+    },
+    {
+      "id": "spot-net-et-propre",
+      "duration": 104.51,
+      "mp4": "spot-net-et-propre.mp4",
+      "poster": "spot-net-et-propre.jpg",
+      "bytes": 3895779,
+      "kind": "spot",
+      "category": "multi-media"
+    },
+    {
+      "id": "spot-siogo",
+      "duration": 39.96,
+      "mp4": "spot-siogo.mp4",
+      "poster": "spot-siogo.jpg",
+      "bytes": 2397580,
+      "kind": "spot",
+      "category": "multi-media"
+    },
+    {
+      "id": "video-impact",
+      "duration": 19.63,
+      "mp4": "video-impact.mp4",
+      "poster": "video-impact.jpg",
+      "bytes": 1621669,
+      "kind": "product",
+      "category": "multi-media"
     }
   ]
 }

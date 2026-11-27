@@ -2,50 +2,50 @@
   "meta": {
     "version": "1.0.0",
     "currency": "FCFA",
-    "updated": "2026-11-25",
-    "source": "Portfolio Touch Unique + positionnement Studio & Académie",
+    "updated": "2026-11-27",
+    "source": "Portfolio Touch Unique + Studio / Académie / Boutique",
     "note": "Les prix sont des prix de départ. Le montant final est confirmé par devis gratuit."
   },
   "categories": [
     {
-      "id": "identite",
-      "label": "Identité & branding",
-      "icon": "◆",
-      "accent": "red"
-    },
-    {
-      "id": "contenu",
-      "label": "Contenus & réseaux",
-      "icon": "✦",
-      "accent": "blue"
-    },
-    {
-      "id": "video",
-      "label": "Vidéo & motion",
-      "icon": "▶",
-      "accent": "red"
-    },
-    {
-      "id": "print",
-      "label": "Print & packaging",
-      "icon": "▣",
-      "accent": "blue"
-    },
-    {
-      "id": "academie",
-      "label": "Académie",
+      "id": "formation",
+      "label": "Formation & académie",
       "icon": "◎",
       "accent": "red"
     },
     {
-      "id": "ia",
-      "label": "Automatisation IA",
+      "id": "imprimerie",
+      "label": "Imprimerie & papeterie",
+      "icon": "▣",
+      "accent": "blue"
+    },
+    {
+      "id": "conception-graphique",
+      "label": "Conception graphique",
+      "icon": "◆",
+      "accent": "red"
+    },
+    {
+      "id": "multi-media",
+      "label": "Multimédia & vidéo",
+      "icon": "▶",
+      "accent": "red"
+    },
+    {
+      "id": "technologie",
+      "label": "Technologie & IA",
       "icon": "✺",
       "accent": "blue"
     },
     {
-      "id": "outils",
-      "label": "Outils & logiciels",
+      "id": "pack-promos",
+      "label": "Packs promos",
+      "icon": "✦",
+      "accent": "red"
+    },
+    {
+      "id": "boutique",
+      "label": "Boutique & modèles",
       "icon": "▣",
       "accent": "blue"
     }
@@ -54,14 +54,14 @@
     {
       "id": "identite-express",
       "name": "Identité Express",
-      "category": "identite",
+      "category": "conception-graphique",
       "type": "service",
       "price": 25000,
       "unit": "forfait",
       "badge": "Le plus demandé",
       "popular": true,
       "delay": "48 h",
-      "img": "identite-01.webp",
+      "img": "identite-express.webp",
       "short": "Un logo mémorable et une mini-charte pour démarrer proprement.",
       "desc": "Deux propositions de logo, une version finale retouchée, une palette noir / rouge / bleu et un mini-guide d’utilisation. Idéal pour une petite entreprise, un créateur ou un projet qui démarre.",
       "deliverables": [
@@ -81,16 +81,16 @@
     {
       "id": "identite-signature",
       "name": "Identité Signature",
-      "category": "identite",
+      "category": "conception-graphique",
       "type": "service",
       "price": 60000,
       "unit": "forfait",
       "badge": "Conversion",
       "popular": true,
       "delay": "5 jours",
-      "img": "identite-02.webp",
+      "img": "identite-signature.webp",
       "short": "Une identité complète, pensée pour être reconnue et vendre.",
-      "desc": "Logo principal, variantes, charte graphique complète, pictogrammes, modèles de publications et déclinaisons print. Une système visuel cohérent du écran au papier.",
+      "desc": "Une identité complète, pensée pour être reconnue et vendre. Logo principal, variantes, charte graphique complète, pictogrammes, modèles de publications et déclinaisons print. Un système visuel cohérent de l’écran au papier.",
       "deliverables": [
         "Logo principal + variantes",
         "Charte graphique 12 pages",
@@ -109,14 +109,14 @@
     {
       "id": "pack-visibility-pro",
       "name": "Pack Visibilité Pro",
-      "category": "contenu",
+      "category": "pack-promos",
       "type": "pack",
       "price": 75000,
       "unit": "forfait",
       "badge": "Rapide à lancer",
       "popular": true,
       "delay": "7 jours",
-      "img": "conception-01.webp",
+      "img": "pack-visibility-pro.webp",
       "short": "Tout ce qu’il faut pour apparaître avec un univers professionnel.",
       "desc": "Identité express, kit de 12 visuels pour réseaux sociaux, bannière professionnelle et une courte vidéo de présentation. Pensé pour les artisans, commerçants et créateurs qui veulent passer à la vitesse supérieure.",
       "deliverables": [
@@ -137,22 +137,22 @@
     {
       "id": "pack-marque-complete",
       "name": "Pack Marque Complète",
-      "category": "identite",
+      "category": "pack-promos",
       "type": "pack",
       "price": 150000,
       "unit": "forfait",
       "badge": "Premium",
       "delay": "10 à 15 jours",
-      "img": "evenement-04.webp",
+      "img": "pack-marque-complete.webp",
       "short": "De l’idée au système de marque complet, prêt à produire.",
       "desc": "Identité complète, charte avancée, site vitrine une page, 25 visuels réseaux, 2 vidéos courtes et modèles print. Un accompagnement stratégique pour une présence qui tient dans le temps.",
       "deliverables": [
-        "Identité Signature",
-        "Site vitrine 1 page",
+        "Identité complète",
+        "Charte avancée",
+        "Site vitrine une page",
         "25 visuels réseaux",
-        "2 vidéos 30–60 s",
-        "Modèles print",
-        "Formation de reprise 1 h"
+        "2 vidéos courtes",
+        "Accompagnement à la prise en main (1 h, support inclus)"
       ],
       "ai": [
         "audit de marque",
@@ -165,12 +165,12 @@
     {
       "id": "video-impact",
       "name": "Vidéo Impact 60 s",
-      "category": "video",
+      "category": "multi-media",
       "type": "service",
       "price": 40000,
       "unit": "forfait",
       "delay": "4 jours",
-      "img": "evenement-03.webp",
+      "img": "video-impact.webp",
       "short": "Filmez, montez, captez l’attention en moins d’une minute.",
       "desc": "Captation courte, montage dynamique, sous-titres, habillage sonore et déclinaisons carré / vertical pour les réseaux. Idéal pour une promo, un événement ou une présentation.",
       "deliverables": [
@@ -191,12 +191,12 @@
     {
       "id": "motion-logo",
       "name": "Motion Logo",
-      "category": "video",
+      "category": "multi-media",
       "type": "service",
       "price": 20000,
       "unit": "forfait",
       "delay": "72 h",
-      "img": "evenement-01.webp",
+      "img": "motion-logo.webp",
       "short": "Votre logo prend vie dans une animation courte et propre.",
       "desc": "Animation de logo 3 à 6 secondes en boucle, avec version claire et sombre. Parfait pour l’ouverture d’une vidéo ou la signature de vos contenus.",
       "deliverables": [
@@ -215,14 +215,14 @@
     },
     {
       "id": "kit-visuels-20",
-      "name": "Kit 20 visuels réseaux",
-      "category": "contenu",
+      "name": "Kit 20 publications réseaux (Studio)",
+      "category": "boutique",
       "type": "digital",
-      "price": 20000,
+      "price": 12000,
       "unit": "kit",
       "badge": "Prêt à publier",
       "delay": "24 h",
-      "img": "conception-02.webp",
+      "img": "kit-visuels-20.webp",
       "short": "20 publications editables pour occuper vos réseaux sans y penser.",
       "desc": "Pack de modèles Canva / PSD avec palette noir, rouge et bleu. Vous changez le texte et la photo, puis vous publiez. Livré avec un calendrier d’usage.",
       "deliverables": [
@@ -242,12 +242,12 @@
     {
       "id": "banniere-pro",
       "name": "Bannière professionnelle",
-      "category": "contenu",
+      "category": "conception-graphique",
       "type": "service",
       "price": 12000,
       "unit": "forfait",
       "delay": "24 h",
-      "img": "identite-01.webp",
+      "img": "banniere-pro.webp",
       "short": "Une bannière techno et nette pour vos profils et vos pages.",
       "desc": "Bannière au format réseau ou site, inspirée de l’univers Touch Unique Académie : fond sombre, lumière rouge, accents bleus, lecture immédiate.",
       "deliverables": [
@@ -266,12 +266,12 @@
     {
       "id": "affiche-evenement",
       "name": "Affiche événementielle",
-      "category": "print",
+      "category": "imprimerie",
       "type": "service",
       "price": 15000,
       "unit": "forfait",
       "delay": "48 h",
-      "img": "evenement-02.webp",
+      "img": "affiche-evenement.webp",
       "short": "Une affiche qui annonce clairement l’essentiel et donne envie.",
       "desc": "Conception d’affiche A3 ou format réseau avec hiérarchie forte, informations essentielles et version prête à imprimer.",
       "deliverables": [
@@ -291,12 +291,12 @@
     {
       "id": "packaging-produit",
       "name": "Packaging produit",
-      "category": "print",
+      "category": "imprimerie",
       "type": "service",
       "price": 35000,
       "unit": "forfait",
       "delay": "5 jours",
-      "img": "packaging-01.webp",
+      "img": "packaging-produit.webp",
       "short": "Un packaging qui protège, raconte et valorise votre produit.",
       "desc": "Étiquette ou boîte personnalisée, système de couleurs, informations produits et maquette de présentation. Adapté à la cosmétique, l’alimentaire et les gadgets.",
       "deliverables": [
@@ -316,12 +316,12 @@
     {
       "id": "plaquette-entreprise",
       "name": "Plaquette entreprise",
-      "category": "print",
+      "category": "imprimerie",
       "type": "service",
       "price": 30000,
       "unit": "forfait",
       "delay": "5 jours",
-      "img": "packaging-02.webp",
+      "img": "plaquette-entreprise.webp",
       "short": "Un support qui résume votre activité et rassure vos prospects.",
       "desc": "Plaquette 4 à 8 pages avec structure claire, textes professionnels et mise en page prête à imprimer. Idéale pour salons, rendez-vous et dossiers de présentation.",
       "deliverables": [
@@ -341,21 +341,21 @@
     {
       "id": "site-vitrine-one-page",
       "name": "Site vitrine one-page",
-      "category": "contenu",
+      "category": "technologie",
       "type": "service",
-      "price": 90000,
+      "price": 45000,
       "unit": "forfait",
       "badge": "Conversion",
       "delay": "7 jours",
-      "img": "projet-personnel-01.webp",
+      "img": "site-vitrine-one-page.webp",
       "short": "Un site rapide, net et pensé pour transformer la visite en contact.",
       "desc": "Page unique responsive avec section offre, portfolio, preuve, appel à l’action et formulaire WhatsApp. Hébergement statique, animations légères et SEO de base.",
       "deliverables": [
-        "Site responsive",
+        "Page responsive",
+        "Section offre et portfolio",
+        "Preuve sociale et appel à l’action",
         "Formulaire WhatsApp",
-        "SEO de base",
-        "Analytics prêt à brancher",
-        "Formation de reprise"
+        "Prise en main (support inclus)"
       ],
       "ai": [
         "rédaction des sections",
@@ -368,12 +368,12 @@
     {
       "id": "mini-site-portfolio",
       "name": "Mini-site portfolio",
-      "category": "contenu",
-      "type": "digital",
+      "category": "technologie",
+      "type": "service",
       "price": 35000,
       "unit": "forfait",
       "delay": "4 jours",
-      "img": "logo-arrahma.webp",
+      "img": "mini-site-portfolio.webp",
       "short": "Votre travail, présenté comme une vraie marque.",
       "desc": "Mini-site d’une page avec galerie filtrable, biographie, services et bouton WhatsApp. Livré clé en main avec vos visuels.",
       "deliverables": [
@@ -392,14 +392,14 @@
     },
     {
       "id": "formation-graphisme",
-      "name": "Formation GraphismePro",
-      "category": "academie",
+      "name": "Graphisme & identité — parcours complet",
+      "category": "formation",
       "type": "formation",
       "price": 50000,
       "unit": "module",
       "badge": "Académie",
       "delay": "4 semaines",
-      "img": "identite-02.webp",
+      "img": "formation-graphisme.webp",
       "short": "Photoshop, Illustrator et les bases d’un vrai œil créatif.",
       "desc": "Module guidé avec exercices, projets corrigés et méthode pour construire un portefeuille. Format hybride, en présentiel ou en ligne selon disponibilité.",
       "deliverables": [
@@ -418,14 +418,14 @@
     },
     {
       "id": "formation-video-capcut",
-      "name": "Formation Vidéo CapCut",
-      "category": "academie",
+      "name": "Vidéo & montage CapCut — parcours complet",
+      "category": "formation",
       "type": "formation",
       "price": 35000,
       "unit": "module",
       "badge": "Académie",
       "delay": "3 semaines",
-      "img": "evenement-03.webp",
+      "img": "formation-video-capcut.webp",
       "short": "Montez des vidéos qui se regardent jusqu’au bout.",
       "desc": "Du tournage au montage mobile : rythme, sous-titres, transitions, son et export réseaux. Conçu pour créateurs et petites entreprises.",
       "deliverables": [
@@ -444,14 +444,14 @@
     },
     {
       "id": "formation-ai-contenus",
-      "name": "Formation IA & Contenus",
-      "category": "academie",
+      "name": "IA & contenus — parcours complet",
+      "category": "formation",
       "type": "formation",
       "price": 60000,
       "unit": "module",
       "badge": "Nouveau",
       "delay": "4 semaines",
-      "img": "conception-01.webp",
+      "img": "formation-ai-contenus.webp",
       "short": "Apprenez à produire plus vite sans perdre votre style.",
       "desc": "Méthode complète pour utiliser l’IA dans un flux de création : briefs, textes, scripts, calendriers et automatisation de boutique. Approche pratique et encadrée.",
       "deliverables": [
@@ -471,14 +471,14 @@
     {
       "id": "abonnement-ai-content",
       "name": "Abonnement AI Content",
-      "category": "ia",
+      "category": "technologie",
       "type": "subscription",
       "price": 30000,
       "unit": "mois",
       "badge": "Récurrent",
       "popular": true,
       "delay": "24 h / semaine",
-      "img": "conception-02.webp",
+      "img": "abonnement-ai-content.webp",
       "short": "Un flux de contenus généré, organisé et prêt à publier.",
       "desc": "Chaque mois : 30 légendes, 8 scripts courts, 1 calendrier éditorial et 1 audit de visibilité. Vous validez, l’assistant prépare le reste.",
       "deliverables": [
@@ -498,13 +498,13 @@
     {
       "id": "autopilot-shop",
       "name": "Autopilot Boutique",
-      "category": "ia",
+      "category": "technologie",
       "type": "subscription",
       "price": 45000,
       "unit": "mois",
       "badge": "Automation",
-      "delay": " continu",
-      "img": "identite-01.webp",
+      "delay": "Continu",
+      "img": "autopilot-shop.webp",
       "short": "Votre catalogue, vos devis et vos relances avancent seuls.",
       "desc": "L’assistant prépare les réponses aux demandes, range les commandes, propose de nouvelles offres et génère les contenus de mise en avant. Vous gardez toujours la validation finale.",
       "deliverables": [
@@ -523,13 +523,13 @@
     },
     {
       "id": "audit-visibility",
-      "name": "Audit de visibilité",
-      "category": "ia",
+      "name": "Audit de visibilité complet",
+      "category": "technologie",
       "type": "service",
       "price": 15000,
       "unit": "forfait",
       "delay": "48 h",
-      "img": "conception-01.webp",
+      "img": "audit-visibility.webp",
       "short": "Un diagnostic clair : ce qui bloque, ce qui marche, quoi faire.",
       "desc": "Analyse de vos réseaux, de votre site et de vos offres. Livrée sous forme d’un plan d’action priorisé en 3 niveaux d’effort.",
       "deliverables": [
@@ -549,12 +549,12 @@
     {
       "id": "pack-cadeau-pro",
       "name": "Pack cadeau entreprise",
-      "category": "print",
+      "category": "pack-promos",
       "type": "pack",
       "price": 55000,
       "unit": "lot de 20",
       "delay": "7 jours",
-      "img": "packaging-02.webp",
+      "img": "pack-cadeau-pro.webp",
       "short": "Un cadeau utile et personnalisé pour marquer les esprits.",
       "desc": "Assortiment personnalisé de 20 articles : carnets, stylos, tasses ou goodies selon stock. Packaging inclus avec votre identité.",
       "deliverables": [
@@ -574,12 +574,12 @@
     {
       "id": "carte-visite-premium",
       "name": "Cartes de visite premium",
-      "category": "print",
+      "category": "imprimerie",
       "type": "service",
       "price": 12000,
       "unit": "lot de 200",
       "delay": "4 jours",
-      "img": "identite-02.webp",
+      "img": "carte-visite-premium.webp",
       "short": "Une carte propre, nette et alignée avec votre marque.",
       "desc": "Recto verso, papier premium, finition mat ou brillante. Inclut la mise en page et le contrôle avant impression.",
       "deliverables": [
@@ -598,14 +598,14 @@
     },
     {
       "id": "session-strategie",
-      "name": "Session stratégie 1 h",
-      "category": "ia",
+      "name": "Session stratégie 1 h (conseil)",
+      "category": "technologie",
       "type": "service",
       "price": 10000,
       "unit": "session",
       "badge": "Départ",
       "delay": "24 h",
-      "img": "identite-01.webp",
+      "img": "session-strategie.webp",
       "short": "Une heure pour mettre de l’ordre dans vos idées et vos priorités.",
       "desc": "Session guidée en visio ou WhatsApp pour clarifier votre offre, votre cible et les 3 actions à lancer en premier. Compte-rendu envoyé ensuite.",
       "deliverables": [
@@ -624,16 +624,16 @@
     },
     {
       "id": "outil-kit-publications",
-      "name": "Kit 30 publications",
-      "category": "outils",
+      "name": "Kit 30 publications réseaux (Boutique)",
+      "category": "boutique",
       "type": "digital",
-      "price": 12000,
+      "price": 18000,
       "unit": "kit",
       "badge": "Prêt à publier",
       "popular": false,
       "delay": "24 h",
       "icon": "✦",
-      "img": "outils.svg",
+      "img": "outil-kit-publications.webp",
       "short": "Trente modèles de publications adaptés à votre marque, prêts à être personnalisés.",
       "desc": "Un pack de modèles carrés et stories pour garder une présence régulière sans repartir de zéro. Livré avec un calendrier de publication et des textes d’accompagnement.",
       "deliverables": [
@@ -652,7 +652,7 @@
     {
       "id": "outil-charte-modele",
       "name": "Modèle de charte graphique",
-      "category": "outils",
+      "category": "boutique",
       "type": "digital",
       "price": 8000,
       "unit": "fichier",
@@ -660,7 +660,7 @@
       "popular": false,
       "delay": "Immédiat",
       "icon": "◆",
-      "img": "outils.svg",
+      "img": "outil-charte-modele.webp",
       "short": "Un modèle clair pour documenter vos couleurs, typographies et règles d’usage.",
       "desc": "Gabarit modifiable avec exemples concrets : palette, typographies, espacement, usage du logo et check-list de contrôle avant publication.",
       "deliverables": [
@@ -679,7 +679,7 @@
     {
       "id": "outil-automatisation-reseaux",
       "name": "Automatiser mes réseaux",
-      "category": "outils",
+      "category": "technologie",
       "type": "service",
       "price": 25000,
       "unit": "forfait",
@@ -687,7 +687,7 @@
       "popular": true,
       "delay": "3 jours",
       "icon": "▶",
-      "img": "outils.svg",
+      "img": "outil-automatisation-reseaux.webp",
       "short": "Publication quotidienne, veille et prospection pilotées par vos robots Touch Unique.",
       "desc": "Mise en place des robots dans l’application et le serveur : publication automatique sur vos comptes connectés, veille techno quotidienne, briefs de conception et recherche de prospects. Vous gardez la possibilité de désactiver chaque tâche.",
       "deliverables": [
@@ -707,24 +707,24 @@
     },
     {
       "id": "outil-site-express",
-      "name": "Site vitrine express",
-      "category": "outils",
+      "name": "Site vitrine 5 pages + boutique",
+      "category": "technologie",
       "type": "service",
-      "price": 45000,
+      "price": 90000,
       "unit": "forfait",
       "badge": "En 5 jours",
       "popular": false,
       "delay": "5 jours",
       "icon": "▣",
-      "img": "outils.svg",
+      "img": "outil-site-express.webp",
       "short": "Un site clair, rapide et lisible, avec boutique et assistant IA intégrés.",
       "desc": "Création d’un site public sur votre domaine ou sur GitHub Pages : présentation, offres, actualités, boutique, compte visiteur et assistant IA. Optimisé mobile et accessibilité.",
       "deliverables": [
-        "Site responsive 5 pages",
-        "Rubrique actualités",
-        "Boutique & panier",
-        "Assistant IA",
-        "Formation à la prise en main"
+        "5 pages responsive",
+        "Boutique et catalogue",
+        "Compte visiteur",
+        "Assistant IA intégré",
+        "Prise en main (support inclus)"
       ],
       "ai": [
         "textes optimisés",
@@ -735,8 +735,8 @@
     },
     {
       "id": "outil-formation-ia",
-      "name": "Formation IA pratique",
-      "category": "outils",
+      "name": "Initiation IA pratique (2 h)",
+      "category": "formation",
       "type": "formation",
       "price": 18000,
       "unit": "par personne",
@@ -744,7 +744,7 @@
       "popular": false,
       "delay": "Sur rendez-vous",
       "icon": "◈",
-      "img": "outils.svg",
+      "img": "outil-formation-ia.webp",
       "short": "Apprenez à utiliser l’IA pour créer, chercher et automatiser sans perdre le contrôle.",
       "desc": "Session pratique en visio ou en présentiel : poser les bonnes questions, générer des contenus, connecter les outils et superviser les robots.",
       "deliverables": [
@@ -762,8 +762,8 @@
     },
     {
       "id": "outil-audit-digital",
-      "name": "Audit digital & outils",
-      "category": "outils",
+      "name": "Audit digital express",
+      "category": "technologie",
       "type": "service",
       "price": 10000,
       "unit": "session",
@@ -771,7 +771,7 @@
       "popular": false,
       "delay": "48 h",
       "icon": "⌕",
-      "img": "outils.svg",
+      "img": "outil-audit-digital.webp",
       "short": "Un diagnostic simple de votre présence en ligne et de vos outils de travail.",
       "desc": "Examen de votre site, de vos réseaux et de vos outils actuels, avec une liste de priorités et un plan d’action réalisable en 30 jours.",
       "deliverables": [
