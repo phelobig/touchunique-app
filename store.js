@@ -11,7 +11,7 @@
   function today() { return new Date().toISOString().slice(0, 10); }
 
   var MAX_IMPORT_BYTES = 4 * 1024 * 1024;
-  var IMPORT_KEYS = ['version', 'demo', 'setupDone', 'createdAt', 'settings', 'clients', 'projects',
+  var IMPORT_KEYS = ['version', 'setupDone', 'createdAt', 'settings', 'clients', 'projects',
     'tasks', 'leads', 'prospects', 'knownLeadIds', 'companies', 'folders', 'contents', 'robots',
     'social', 'shop', 'logs', 'stats'];
   var IMPORT_LISTS = ['clients', 'projects', 'tasks', 'leads', 'prospects', 'companies', 'folders', 'contents', 'robots', 'social'];
@@ -44,12 +44,11 @@
     return null;
   }
 
-  function seed() {
-    var p1 = uid('PR'), p2 = uid('PR'), p3 = uid('PR');
-    var c1 = uid('CL'), c2 = uid('CL'), c3 = uid('CL');
+  /* Aucune donnée de démonstration : une installation neuve démarre vide.
+     Tout contenu affiché provient de l'utilisateur, du site ou du serveur. */
+  function defaults() {
     return {
       version: 2,
-      demo: true,
       setupDone: false,
       createdAt: now(),
       settings: {
@@ -65,60 +64,20 @@
         activeProject: '',
         connectors: { whatsapp: true, facebook: false, instagram: false, linkedin: false, x: false, email: false, payment: false }
       },
-      clients: [
-        { id: c1, name: 'Maison Kaboré', phone: '+226 70 12 34 56', email: 'contact@maisonkabore.bf', city: 'Ouagadougou', createdAt: now() },
-        { id: c2, name: 'Pharmacie Ar-Rahma', phone: '+226 76 00 11 22', email: '', city: 'Ouagadougou', createdAt: now() },
-        { id: c3, name: 'École Les Étoiles', phone: '+226 65 22 33 44', email: 'ecole@etoiles.bf', city: 'Bobo-Dioulasso', createdAt: now() }
-      ],
-      projects: [
-        { id: p1, name: 'Refonte identité — Maison Kaboré', type: 'Identité & branding', client: 'Maison Kaboré', phone: '+226 70 12 34 56', status: 'conception', amount: 60000, source: 'Manuel', createdAt: now(), due: '2026-12-08', ai: true },
-        { id: p2, name: 'Vidéo promo 60 s — Ar-Rahma', type: 'Vidéo & motion', client: 'Pharmacie Ar-Rahma', phone: '+226 76 00 11 22', status: 'production', amount: 40000, source: 'Site web', createdAt: now(), due: '2026-12-02', ai: true },
-        { id: p3, name: 'Kit réseaux — École Les Étoiles', type: 'Contenus réseaux', client: 'École Les Étoiles', phone: '+226 65 22 33 44', status: 'brief', amount: 20000, source: 'Académie', createdAt: now(), due: '2026-12-15', ai: false }
-      ],
-      tasks: [
-        { id: uid('TK'), projectId: p1, title: 'Valider la direction créative', phase: 'Conception', priority: 'haute', status: 'à faire', createdAt: now(), ai: true },
-        { id: uid('TK'), projectId: p2, title: 'Préparer le découpage plan par plan', phase: 'Production', priority: 'haute', status: 'en cours', createdAt: now(), ai: true },
-        { id: uid('TK'), projectId: p3, title: 'Recevoir les photos d’élèves', phase: 'Brief', priority: 'moyenne', status: 'à faire', createdAt: now(), ai: false }
-      ],
-      leads: [],
-      prospects: [],
-      knownLeadIds: [],
-      companies: [],
-      folders: [],
-      contents: [
-        { id: uid('CT'), theme: 'Identité visuelle', type: 'reseau', text: 'Un visuel qui capte, un message qui reste, une action qui suit. C’est exactement ce qu’on construit avec une identité claire. #TouchUnique', createdAt: now(), ai: true }
-      ],
-      robots: [],
-      social: [
-        { id: uid('SO'), platform: 'instagram', text: 'Votre marque a quelque chose à dire. On l’aide à être comprise en trois secondes.', status: 'à valider', scheduledAt: now(), source: 'manuel' },
-        { id: uid('SO'), platform: 'facebook', text: 'Pack Visibilité Pro : identité, 12 visuels, bannière et vidéo 30 s.', status: 'programmé', scheduledAt: now(), source: 'autopilot' },
-        { id: uid('SO'), platform: 'linkedin', text: 'Une identité n’est pas un luxe : c’est un outil de confiance.', status: 'publié', scheduledAt: now(), source: 'manuel' }
-      ],
+      clients: [], projects: [], tasks: [], leads: [], prospects: [], knownLeadIds: [],
+      companies: [], folders: [], contents: [], robots: [], social: [],
       shop: { orders: [], overrides: {}, suggestions: [] },
-      logs: [
-        { id: uid('LG'), at: now(), text: 'Application initialisée en mode démonstration.' }
-      ],
+      logs: [{ id: uid('LG'), at: now(), text: 'Application prête.' }],
       stats: { runs: 0, generated: 0, social: 0, imports: 0 }
     };
-  }
-
-  function defaults() {
-    var d = seed();
-    d.demo = false;
-    d.setupDone = false;
-    d.clients = []; d.projects = []; d.tasks = []; d.leads = []; d.contents = []; d.social = []; d.robots = [];
-    d.companies = []; d.folders = []; d.prospects = [];
-    d.shop.orders = [];
-    d.logs = [{ id: uid('LG'), at: now(), text: 'Application prête.' }];
-    return d;
   }
 
   function load() {
     try {
       var raw = localStorage.getItem(KEY);
-      if (!raw) return seed();
+      if (!raw) return defaults();
       var d = JSON.parse(raw);
-      if (!d || typeof d !== 'object') return seed();
+      if (!d || typeof d !== 'object') return defaults();
       var base = defaults();
       Object.keys(base).forEach(function (k) { if (d[k] == null) d[k] = base[k]; });
       if (!d.settings) d.settings = base.settings;
@@ -133,7 +92,7 @@
       if (d.settings.activeProject == null) d.settings.activeProject = '';
       if (d.version !== 2) d.version = 2;
       return d;
-    } catch (e) { return seed(); }
+    } catch (e) { return defaults(); }
   }
 
   var db = load();
@@ -265,7 +224,6 @@
     var clean = {};
     Object.keys(parsed).forEach(function (k) { clean[k] = cleanValue(parsed[k], 0); });
     clean.version = 2;
-    clean.demo = !!clean.demo;
     clean.setupDone = !!clean.setupDone;
     clean.createdAt = cleanText(clean.createdAt, 40) || now();
     if (!plainObject(clean.settings)) clean.settings = {};
@@ -299,8 +257,8 @@
     db = clean;
     return save();
   }
-  function reset(demo) {
-    db = demo ? seed() : defaults();
+  function reset() {
+    db = defaults();
     save();
   }
 

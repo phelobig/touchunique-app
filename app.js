@@ -311,8 +311,6 @@
   /* ---------- Navigation ---------- */
   function updateBadges() {
     var unread = Store.unreadLeads();
-    var demo = $('#demo-chip');
-    if (demo) demo.hidden = !Store.db.demo;
     var dot = $('#notif-dot');
     if (dot) dot.hidden = unread === 0;
     var badge = $('#side-nav .nav-item[data-page="leads"] .badge');
@@ -1276,9 +1274,9 @@
     var badge = $('#ai-mode'), box = $('#proxy-status');
     function paint(s) {
       var live = s.ok && Object.keys(s.ai || {}).some(function (k) { return s.ai[k]; });
-      if (badge) badge.textContent = (live && s.ai && s.ai.web)
-        ? 'IA temps réel · Internet illimité'
-        : live ? 'IA temps réel connectée' : 'Moteur local inclus';
+      if (badge) badge.textContent = live
+        ? 'Connecté · IA illimitée'
+        : 'IA locale · serveur indisponible';
       if (!box) return;
       if (!s.configured) { box.innerHTML = 'Serveur non configuré — moteur local actif.'; return; }
       if (!s.ok) { box.innerHTML = 'Serveur injoignable : ' + esc(s.error || 'erreur'); return; }
@@ -1326,10 +1324,13 @@
     if (!AI) return Promise.resolve({
       answer: 'Je peux vous aider sur les projets, les commandes, les contenus, les robots et la boutique.', sources: ['Aide']
     });
-    return AI.ask(raw).then(function (r) {
+    var picker = $('#ai-lang');
+    var chosen = picker ? String(picker.value || '') : '';
+    var c = chosen || (window.TUSLang && window.TUSLang.detect ? window.TUSLang.detect(raw) : 'fr');
+    return AI.ask(raw, { lang: c }).then(function (r) {
       var tags = (r.sources || []).map(function (s) { return s.title || s.url || s; }).filter(Boolean);
-      if (!tags.length) tags = [r.live ? 'IA temps réel' : 'Moteur local'];
-      return { answer: r.text, sources: tags, trials: r.trials, unlimited: !!r.unlimited };
+      if (!tags.length) tags = [r.live ? 'IA connectée' : 'IA locale'];
+      return { answer: r.text, sources: tags, lang: r.lang || c, live: !!r.live };
     });
   }
   function pushMsg(cls, text) {
@@ -1341,7 +1342,25 @@
     box.scrollTop = box.scrollHeight;
   }
   function initAI() {
-    pushMsg('bot', 'Bonjour. Je suis l’assistant local Touch Unique. Je prépare, je classe et je rédige — vous validez.');
+    /* Petit sélecteur FR/EN dans l'en-tête : la détection automatique reste la valeur par défaut. */
+    var head = $('#ai-panel .ai-panel-head');
+    if (head && window.TUSLang) {
+      var picker = document.createElement('select');
+      picker.id = 'ai-lang';
+      picker.setAttribute('aria-label', 'Langue de l’assistant');
+      picker.style.cssText = 'max-width:86px;margin-right:6px;padding:2px 4px;font-size:11px;border-radius:6px;border:1px solid rgba(200,16,46,.35);background:transparent;color:inherit';
+      [['', 'Auto'], ['fr', window.TUSLang.name('fr')], ['en', window.TUSLang.name('en')]].forEach(function (pair) {
+        var option = document.createElement('option');
+        option.value = pair[0]; option.textContent = pair[1];
+        picker.appendChild(option);
+      });
+      var closeBtn = $('#ai-close');
+      if (closeBtn) head.insertBefore(picker, closeBtn); else head.appendChild(picker);
+    }
+    var welcome = window.TUSLang && window.TUSLang.phrase
+      ? window.TUSLang.phrase('assistant_welcome', 'fr')
+      : 'Bonjour. Je suis l’assistant Touch Unique. Je prépare, je classe et je rédige — vous validez.';
+    pushMsg('bot', welcome);
     var sugg = ['Montre les projets', 'Trouve une offre', 'Génère une publication', 'Cherche des prospects', 'Tâches en attente'];
     $('#ai-suggestions').innerHTML = sugg.map(function (s) { return '<button type="button">' + esc(s) + '</button>'; }).join('');
     $('#ai-suggestions').addEventListener('click', function (e) {
@@ -1358,10 +1377,6 @@
       if (btn) btn.disabled = true;
       assistantAsk(text).then(function (res) {
         var footer = (res.sources && res.sources.length) ? '\n\n— Sources : ' + res.sources.join(', ') : '';
-        /* L’accès Internet illimité n’utilise aucun essai local. */
-        if (!res.unlimited && res.trials && res.trials.limit) {
-          footer += (footer ? ' · ' : '\n\n') + 'Indicateur local : ' + (res.trials.remaining || 0) + '/' + res.trials.limit + ' essais aujourd’hui';
-        }
         pushMsg('bot', res.answer + footer);
         refreshConnections();
       }).catch(function (err) {
@@ -1917,7 +1932,9 @@
     Cloud.request('/api/ai', {
       provider: 'web', prompt: 'Recherche web approfondie pour Touch Unique Studio au Burkina-Faso : ' + q +
         '\n\nDonne une liste factuelle avec noms, structures, signaux observables, sources URL et pistes d’approche. Signale ce qui n’est pas vérifiable.',
-      system: 'Tu es un assistant de recherche factuelle avec accès Internet. Cite tes sources. Ne prétends jamais avoir contacté une structure.',
+      system: window.TUSLang
+        ? window.TUSLang.system('Assistant de recherche factuelle avec accès Internet. Cite tes sources. Ne prétends jamais avoir contacté une structure.', window.TUSLang.detect(q))
+        : 'Tu es un assistant de recherche factuelle avec accès Internet. Cite tes sources. Ne prétends jamais avoir contacté une structure.',
       maxTokens: 1800
     }).then(function (r) {
       var text = r.text || '';

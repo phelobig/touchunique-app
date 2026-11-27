@@ -223,11 +223,12 @@
         var prompt = 'Tu es l’assistant administrateur local Touch Unique. Réponds en français, de façon précise, ' +
           'uniquement à partir des éléments ci-dessous. Cite les sources. Si l’information manque, dis-le.\n\n' +
           'Données indexées : ' + index.length + ' éléments. Répartition : ' + tally + '.\n' + context + '\n\nQuestion : ' + q;
-        return AI.ask(prompt).then(function (r) {
+        var lang = root.TUSLang && root.TUSLang.detect ? root.TUSLang.detect(q) : 'fr';
+        return AI.ask(prompt, { lang: lang }).then(function (r) {
           return {
             answer: (r.text || localAnswer(index, q, hits)) + '\n\n— Sources : ' +
               (sources.length ? sources.join(', ') : 'données locales'),
-            sources: sources, trials: r.trials
+            sources: sources, lang: r.lang || lang
           };
         }).catch(function () {
           return { answer: localAnswer(index, q, hits), sources: sources };
