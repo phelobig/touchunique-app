@@ -23,6 +23,10 @@
     return u.href.replace(/\/$/, '');
   }
 
+  /* Les WebView Android peuvent perdre sessionStorage au redémarrage : la clé
+     doit y rester lisible durablement, sans changer le comportement du site. */
+  function nativeApp() { return !!(root.TUSNative && typeof root.TUSNative.api === 'function'); }
+
   function storedServerURL() {
     try { return root.localStorage.getItem('tus_proxy_url_v1') || ''; } catch (e) { return ''; }
   }
@@ -54,7 +58,8 @@
     try {
       if (clean && root.sessionStorage) {
         root.sessionStorage.setItem('tus_proxy_key_v1', clean);
-        root.localStorage.removeItem('tus_proxy_key_v1');
+        if (nativeApp()) root.localStorage.setItem('tus_proxy_key_v1', clean);
+        else root.localStorage.removeItem('tus_proxy_key_v1');
       } else if (clean) {
         root.localStorage.setItem('tus_proxy_key_v1', clean);
       } else {
@@ -77,7 +82,7 @@
     var legacy = root.localStorage.getItem('tus_proxy_key_v1');
     if (legacy && root.sessionStorage && !root.sessionStorage.getItem('tus_proxy_key_v1')) {
       root.sessionStorage.setItem('tus_proxy_key_v1', legacy);
-      root.localStorage.removeItem('tus_proxy_key_v1');
+      if (!nativeApp()) root.localStorage.removeItem('tus_proxy_key_v1');
     }
   } catch (e) {}
 

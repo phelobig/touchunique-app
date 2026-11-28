@@ -1305,7 +1305,13 @@
 
   /* ---------- Assistant & connexions ---------- */
   function refreshConnections() {
-    var badge = $('#ai-mode'), box = $('#proxy-status');
+    var badge = $('#ai-mode'), box = $('#proxy-status'), keyBox = $('#key-status');
+    if (keyBox && !keyBox.textContent) {
+      var savedKey = window.TUSSecure && window.TUSSecure.getSecret ? window.TUSSecure.getSecret() : '';
+      keyBox.textContent = savedKey
+        ? ('Clé chargée (' + savedKey.length + ' car. · ' + savedKey.slice(0, 4) + '…' + savedKey.slice(-4) + ')')
+        : 'Aucune clé enregistrée — saisissez la clé fournie.';
+    }
     function paint(s) {
       var live = s.ok && Object.keys(s.ai || {}).some(function (k) { return s.ai[k]; });
       if (badge) badge.textContent = live
@@ -2893,22 +2899,23 @@
         e.preventDefault(); shopSave(form);
       } else if (form.id === 'proxy-form') {
         e.preventDefault();
-        var pf = new FormData(form), AI = window.TUSAI, rawKey = '';
+        var pf = new FormData(form), AI = window.TUSAI;
+        var rawKey = String(pf.get('key') || '').trim();
+        var rawUrl = String(pf.get('url') || '').trim();
+        if (!rawUrl && rawKey) rawUrl = 'https://touchunique-serveur.onrender.com';
         if (!AI) return toast('Couche IA indisponible', true);
         try {
           var S = window.TUSSecure || {};
           if (!S.serverURL) throw new Error('Validation du serveur indisponible.');
-          var rawUrl = String(pf.get('url') || '').trim();
           if (rawUrl) {
             var cleanUrl = S.serverURL(rawUrl);
             AI.connect(cleanUrl);
             if (window.TUSMessages) window.TUSMessages.setServer(cleanUrl);
             if (window.TUSCloud) window.TUSCloud.connect(cleanUrl);
-            rawKey = String(pf.get('key') || '').trim();
             S.setSecret(rawKey);
             var keyBox = $('#key-status');
             if (keyBox) keyBox.textContent = rawKey
-              ? ('Clé enregistrée (' + rawKey.length + ' caractères) — vérification…') : 'Aucune clé enregistrée.';
+              ? ('Clé enregistrée (' + rawKey.length + ' car. · ' + rawKey.slice(0, 4) + '…' + rawKey.slice(-4) + ') — vérification…') : 'Aucune clé enregistrée.';
             if (rawKey && rawKey.length !== 44) {
               toast('Clé suspecte : 44 caractères attendus. Vérifiez +, / et =.', true);
             }
