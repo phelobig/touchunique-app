@@ -1025,9 +1025,10 @@
       '<div class="card"><div class="card-head"><h2>Serveur sécurisé</h2><span class="chip blue">Clés côté serveur</span></div>' +
       '<form id="proxy-form" class="form-grid">' +
       '<label class="field full"><span>URL du serveur sécurisé</span><input name="url" type="url" placeholder="https://touchunique-serveur.onrender.com" value="' + esc((Cloud && Cloud.url()) || (window.TUSAI && window.TUSAI.getURL()) || 'https://touchunique-serveur.onrender.com') + '"></label>' +
-      '<label class="field"><span>Clé d’accès (X-Tus-Key)</span><input name="key" type="password" autocomplete="off" placeholder="Facultatif"></label>' +
+      '<label class="field"><span>Clé d’accès (X-Tus-Key)</span><input name="key" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" placeholder="44 caractères — coller exactement"></label>' +
       '<div class="field"><button class="btn btn-ghost btn-sm" type="submit">Enregistrer</button></div></form>' +
       '<div id="proxy-status" class="subtle small" style="margin-top:10px">Non configuré.</div>' +
+      '<div id="key-status" class="subtle small" style="margin-top:6px"></div>' +
       '<div class="row" style="margin-top:10px"><button class="btn btn-ghost btn-sm" data-act="cloud-refresh">↻ Tester la connexion</button>' +
       '<button class="btn btn-ghost btn-sm" data-act="robots-config">Configurer les robots</button>' +
       '<button class="btn btn-ghost btn-sm" data-act="agents-config">Configurer les agents</button></div>' +
@@ -2892,7 +2893,7 @@
         e.preventDefault(); shopSave(form);
       } else if (form.id === 'proxy-form') {
         e.preventDefault();
-        var pf = new FormData(form), AI = window.TUSAI;
+        var pf = new FormData(form), AI = window.TUSAI, rawKey = '';
         if (!AI) return toast('Couche IA indisponible', true);
         try {
           var S = window.TUSSecure || {};
@@ -2903,7 +2904,21 @@
             AI.connect(cleanUrl);
             if (window.TUSMessages) window.TUSMessages.setServer(cleanUrl);
             if (window.TUSCloud) window.TUSCloud.connect(cleanUrl);
-            S.setSecret(pf.get('key') || '');
+            rawKey = String(pf.get('key') || '').trim();
+            S.setSecret(rawKey);
+            var keyBox = $('#key-status');
+            if (keyBox) keyBox.textContent = rawKey
+              ? ('Clé enregistrée (' + rawKey.length + ' caractères) — vérification…') : 'Aucune clé enregistrée.';
+            if (rawKey && rawKey.length !== 44) {
+              toast('Clé suspecte : 44 caractères attendus. Vérifiez +, / et =.', true);
+            }
+            if (rawKey && window.TUSRobots && window.TUSRobots.status) {
+              window.TUSRobots.status().then(function (k) {
+                if (keyBox) keyBox.textContent = k && k.ok
+                  ? 'Clé valide · robots accessibles.'
+                  : ('Clé invalide : ' + ((k && k.error) || 'accès refusé'));
+              });
+            }
           } else {
             AI.disconnect();
             if (window.TUSCloud) window.TUSCloud.disconnect();
@@ -2912,7 +2927,7 @@
           if (window.electronAPI && window.electronAPI.setConfig) {
             window.electronAPI.setConfig({ url: rawUrl, key: pf.get('key') });
           }
-          toast('Connexion au serveur enregistrée');
+          toast('Connexion au serveur enregistrée' + (rawKey ? ' · clé vérifiée ci-dessous' : ''));
           refreshConnections(); refreshRobotStatus();
         } catch (err) { toast(err.message, true); }
       } else if (form.id === 'settings-form') {
